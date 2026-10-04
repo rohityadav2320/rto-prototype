@@ -1,0 +1,903 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="author" content="Team The Third Factor, IIT Kanpur"></head><body><title>Intent Control Tower Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky top bar with path nav · guide strip · phone (left) + synced system views (right). Full-width dashboard for P7. */
+:root{
+  --bg:#F7F3F8; --surface:#FFFFFF; --sunk:#F0E8F1; --ink:#24132A; --muted:#6F5E72; --line:#E5D8E6;
+  --plum:#4A1548; --pink:#C2185B; --ok:#0E7A3A; --ok-soft:#E2F4E8; --warn:#9A560F; --warn-soft:#FCEFDD; --bad:#BF2430; --bad-soft:#FBE5E6;
+  --sys:#5B5B78; --hub:#1F2A44; --rider:#2F6F73; --ct:#4A1548; --accent-ink:#4A1548; --on-accent:#FFFFFF;
+  --f-ui:"Figtree", "Segoe UI", system-ui, sans-serif; --f-display:"Bricolage Grotesque", "Segoe UI", sans-serif; --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#150B17; --surface:#20122A; --sunk:#2A1A33; --ink:#F3E9F4; --muted:#BBA7BE; --line:#3A2844;
+  --plum:#D3A9DC; --pink:#FF6FA0; --ok:#5DD08F; --ok-soft:#13301F; --warn:#F1A85B; --warn-soft:#3A2512; --bad:#FF7A7A; --bad-soft:#3D1719;
+  --sys:#A9A9D6; --hub:#9FB4E8; --rider:#7FD1D5; --ct:#E2B7EA; --accent-ink:#ECCDF2; --on-accent:#1B0D1E; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#150B17; --surface:#20122A; --sunk:#2A1A33; --ink:#F3E9F4; --muted:#BBA7BE; --line:#3A2844;
+  --plum:#D3A9DC; --pink:#FF6FA0; --ok:#5DD08F; --ok-soft:#13301F; --warn:#F1A85B; --warn-soft:#3A2512; --bad:#FF7A7A; --bad-soft:#3D1719;
+  --sys:#A9A9D6; --hub:#9FB4E8; --rider:#7FD1D5; --ct:#E2B7EA; --accent-ink:#ECCDF2; --on-accent:#1B0D1E; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-ui);margin:0}
+button{font-family:inherit}
+button:focus-visible,input:focus-visible,label:focus-within{outline:3px solid var(--pink);outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:18px;padding-block:0 40px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding-block:10px}
+.top .row{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;justify-content:space-between}
+.brand{display:flex;flex-direction:column}
+.brand b{font:800 20px/1.1 var(--f-display);color:var(--accent-ink)}
+.brand small{font-size:12px;color:var(--muted)}
+.paths{display:flex;gap:6px;overflow-x:auto;padding-block:8px 2px;margin-top:6px}
+.paths button{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:6px 12px;font-weight:600;font-size:13px;cursor:pointer}
+.paths button.on{background:var(--plum);color:var(--on-accent);border-color:var(--plum)}
+.cov{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.cov .bar{width:120px;height:8px;border-radius:4px;background:var(--sunk);overflow:hidden}
+.cov .bar i{display:block;height:100%;background:var(--pink)}
+.guide{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--pink);border-radius:14px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
+.guide h2{margin:0;font:700 18px var(--f-display);color:var(--accent-ink);text-wrap:balance}
+.guide p{margin:0;color:var(--muted);flex:1 1 380px;min-width:0}
+.tourbar{margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FFF1F8;border:2px solid #FF3D8B;border-radius:14px;padding:10px 14px;color:#4A1548;font-size:15px}
+.tourbar .tb-ic{font-size:20px}
+.tourbar .tb-tx{flex:1 1 300px;min-width:0}
+.tourbar button{border:none;border-radius:999px;font:700 14px var(--f-ui);cursor:pointer;padding:9px 16px}
+.tourbar .tb-go{background:#C2185B;color:#fff}
+.tourbar .tb-x{background:transparent;color:#7a3a6e;text-decoration:underline;padding:9px 6px}
+.tourbar.off{background:transparent;border:1px dashed var(--line);color:var(--muted);padding:6px 12px;font-size:13px}
+.tourbar.off button{background:var(--surface);color:var(--accent-ink);border:1px solid var(--line);padding:6px 12px;font-size:13px}
+.tourHi{outline:3px solid #FF3D8B !important;outline-offset:-3px;animation:tpulse 1.2s ease-in-out infinite;position:relative;z-index:3}
+@keyframes tpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,139,.55)}50%{box-shadow:0 0 0 7px rgba(255,61,139,0)}}
+@media (prefers-reduced-motion:reduce){.tourHi{animation:none}}
+.startcard{margin-top:14px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:linear-gradient(135deg,#9F2089,#C2185B);color:#fff;border-radius:16px;padding:18px 22px}
+.startcard>div{flex:1 1 360px;min-width:0}
+.startcard h3{margin:0 0 4px;font:700 20px var(--f-display)}
+.startcard p{margin:0;opacity:.92}
+.startbtn{border:none;background:#fff;color:#9F2089;font:800 17px var(--f-ui);border-radius:999px;padding:13px 24px;cursor:pointer}
+.guide .sl{font:600 12px var(--f-mono);color:var(--pink)}
+.stage{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:24px;margin-top:16px;align-items:start}
+@media (max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}}
+.left{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0}
+.who{font:600 12px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.demo{width:100%;max-width:370px;background:var(--surface);border:1px dashed var(--pink);border-radius:14px;padding:10px 12px}
+.demo h4{margin:0 0 8px;font:600 12px var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--pink)}
+.demo .opts{display:flex;flex-wrap:wrap;gap:6px}
+.demo button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer}
+.demo button.on{background:var(--plum);color:var(--on-accent);border-color:var(--plum)}
+.demo .lbl{font-size:12px;color:var(--muted);width:100%;margin-top:4px}
+
+/* ---------- PHONE (fixed Meesho / WhatsApp look, like a real handset) ---------- */
+.phone{width:100%;max-width:370px;aspect-ratio:9/19;background:#0F0B12;border-radius:44px;padding:11px;box-shadow:0 22px 44px -22px rgba(40,10,40,.5)}
+.scr{position:relative;width:100%;height:100%;border-radius:34px;overflow:hidden;background:#fff;color:#2b2b33;display:flex;flex-direction:column;font:14px/1.4 var(--f-ui)}
+.sb{display:flex;justify-content:space-between;padding:9px 22px 5px;font:600 12px var(--f-ui);color:#222;background:#fff;flex:0 0 auto}
+.dark .sb{background:#1F2A44;color:#fff}
+.body{flex:1;overflow-y:auto;background:#fff;display:flex;flex-direction:column}
+.mzh{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #e6e6ee;font-weight:600;letter-spacing:.02em;text-transform:uppercase;font-size:13px;color:#353543;background:#fff;position:sticky;top:0;z-index:2}
+.mzh .bk{font-size:20px;line-height:1;cursor:pointer;color:#353543;background:none;border:none;padding:0}
+.mzh .step{margin-left:auto;font-size:11px;color:#3D6CC0;border:1.5px solid #9DB6E3;border-radius:999px;padding:2px 9px;background:#EEF3FC}
+.mzh .help{margin-left:auto;color:#9F2089;font-weight:700}
+.deliv{background:#F2F4FA;padding:9px 14px;font-size:13px;font-weight:600;color:#33334a}
+.srch{margin:10px 14px;border:1.5px solid #D9D9E3;border-radius:10px;padding:9px 12px;color:#8a8a98;font-size:13px}
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:6px 12px}
+.cat{display:flex;flex-direction:column;align-items:center;font-size:11px;color:#444}
+.cat i{font-style:normal;width:54px;height:54px;border-radius:50%;background:#E6E3FA;display:grid;place-items:center;font-size:26px;margin-bottom:3px}
+.banner{margin:8px 10px;border-radius:10px;background:linear-gradient(90deg,#B3122B,#E2452B);color:#FFE27A;font-weight:800;text-align:center;padding:10px;font-size:14px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2px;background:#eee;margin-top:6px}
+.pcard{background:#fff;padding:8px;min-width:0;width:100%;cursor:pointer;border:none;text-align:left;font:inherit;color:inherit}
+.pimg{aspect-ratio:1;border-radius:8px;display:grid;place-items:center;font-size:56px;background:#F3EFF6}
+.pt{font-size:12px;color:#555;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp{font-weight:700;font-size:16px}.pp s{font-weight:400;color:#888;font-size:12px;margin-left:4px}.pp em{font-style:normal;color:#0E7A3A;font-size:12px;margin-left:4px}
+.offer{color:#0E7A3A;font-size:12px;font-weight:600}
+.rate{display:inline-block;background:#1E8A4C;color:#fff;font-weight:700;border-radius:999px;padding:1px 8px;font-size:12px}
+.nav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #e6e6ee;padding:6px 0 10px;font-size:10px;color:#555;text-align:center;background:#fff;flex:0 0 auto}
+.nav b{display:block;font-size:18px;font-weight:400}
+.nav .on{color:#9F2089;font-weight:700}
+.nav button{background:none;border:none;font:inherit;color:inherit;cursor:pointer;padding:0}
+.ib{border:none;background:none;font:inherit;cursor:pointer;padding:0;color:inherit}
+.ptoast{position:absolute;left:14px;right:14px;bottom:72px;background:#2b2b33;color:#fff;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.35;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:20}
+.sec{padding:12px 14px;border-bottom:8px solid #F0F0F5}
+.btnP{display:block;width:100%;background:#9F2089;color:#fff;border:none;border-radius:8px;padding:13px;font:700 15px var(--f-ui);cursor:pointer}
+.btnP[disabled]{background:#D5C7D6;cursor:not-allowed}
+.btnO{display:block;width:100%;background:#fff;color:#9F2089;border:1.5px solid #9F2089;border-radius:8px;padding:12px;font:700 15px var(--f-ui);cursor:pointer}
+.btnG{background:#fff;color:#333;border:1.5px solid #333;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer}
+.foot{padding:10px 14px 14px;border-top:1px solid #e6e6ee;background:#fff;display:flex;gap:10px;align-items:center;flex:0 0 auto}
+.foot .tot{flex:0 0 auto;font-weight:800;font-size:18px}
+.foot .tot small{display:block;color:#9F2089;font-size:11px;font-weight:700}
+.green{background:#E5F7EF;color:#0E7A3A;font-weight:700;text-align:center;padding:8px;font-size:15px}
+.mall{display:inline-block;background:#6A2BFF;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700}
+.chipz{display:flex;gap:8px;flex-wrap:wrap}
+.sz{border:1.5px solid #ccc;border-radius:999px;padding:6px 12px;background:#fff;cursor:pointer;font-weight:600;color:#333}
+.sz.on{border-color:#9F2089;color:#9F2089;background:#FBF0FB}
+.form{background:#EBEBF3;flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.form>*,.body>*{flex-shrink:0}
+.fcard{background:#fff;border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.fld{grid-column:span 2;border-bottom:1.5px solid #D5D5DF;padding-bottom:4px}
+.fld.half{grid-column:span 1}
+.fld label{display:block;font-size:11px;color:#8a8a98}
+.fld input{width:100%;border:none;font:500 14px var(--f-ui);color:#222;background:transparent;padding:2px 0}
+.fld.lock input{color:#999}
+.fld.err{border-color:#C0262D}
+.fld .ok{color:#0E7A3A;float:right}
+.addrow{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-bottom:1px solid #eee;cursor:pointer;background:#fff;border-left:none;border-right:none;border-top:none;text-align:left;font:inherit;color:inherit;width:100%}
+.addrow.sel{background:#E7ECFA}
+.radio{width:20px;height:20px;border-radius:50%;border:2px solid #888;flex:0 0 auto;margin-top:2px}
+.sel .radio{border:6px solid #9F2089}
+.new{background:#FFF0F6;border:1.5px solid #E7A1C0;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#7A1145}
+.new b{color:#C2185B}
+.warnbox{background:#FFF4E5;border:1.5px solid #F2C27A;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#7A4B00}
+.errbox{background:#FDECEC;border:1.5px solid #F0B4B4;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#9B1C1C}
+.okbox{background:#E7F7EE;border:1.5px solid #A8DDBC;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#0E5A2E}
+.toast{margin:8px 14px;background:#1E8A4C;color:#fff;border-radius:10px;padding:9px 12px;font-weight:600;font-size:13px;text-align:center}
+.map{position:relative;height:200px;border-radius:12px;overflow:hidden;background:#E3ECDD;border:1px solid #cfdac8}
+.map .rd{position:absolute;background:#fff}
+.map .zone{position:absolute;inset:0 auto 0 0;width:68%;background:rgba(159,32,137,.06);border-right:2px dashed rgba(159,32,137,.5)}
+.map .zl{position:absolute;font-size:10px;font-weight:700;color:#7A2A6E;background:rgba(255,255,255,.8);border-radius:4px;padding:1px 4px}
+.map .bd{position:absolute;border:none;border-radius:6px;background:#C9C1D9;color:#2c2440;font:600 10.5px var(--f-ui);cursor:pointer;padding:2px}
+.map .bd.sel{background:#9F2089;color:#fff}
+.map .bd.out{background:#D8CDBE}
+.pin{position:absolute;width:26px;height:26px;transform:translate(-50%,-100%);pointer-events:none;transition:left .35s,top .35s}
+.pin::before{content:"";position:absolute;inset:0;border-radius:50% 50% 50% 0;background:#C2185B;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.pin::after{content:"";position:absolute;width:10px;height:10px;left:8px;top:7px;border-radius:50%;background:#fff}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px}
+.chk input{margin-top:3px;accent-color:#9F2089;width:16px;height:16px}
+.sugg{border:1px dashed #9F2089;color:#9F2089;background:#fff;border-radius:999px;padding:3px 10px;font-weight:700;font-size:12px;cursor:pointer}
+.track{display:grid;grid-template-columns:repeat(4,1fr);text-align:center;font-size:11px;gap:4px;margin-top:10px}
+.track span{display:flex;flex-direction:column;align-items:center;gap:3px;color:#444}
+.track i{width:22px;height:22px;border-radius:50%;background:#CFCFDA;display:grid;place-items:center;color:#fff;font-style:normal;font-size:12px}
+.track .d i{background:#1E8A4C}
+.track .x i{background:#C0262D}
+.confirm{flex:1;background:#6626FF;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;border:none;font:inherit;width:100%}
+.confirm .c{width:96px;height:96px;border-radius:50%;background:#fff;color:#6626FF;display:grid;place-items:center;font-size:52px;font-weight:800}
+.confirm h3{margin:0;font:800 26px var(--f-ui)}
+.sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;flex-direction:column;justify-content:flex-end;z-index:5}
+.sheet{background:#fff;border-radius:18px 18px 0 0}
+.sheet .sh{display:flex;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eee;font-weight:600;text-transform:uppercase;font-size:13px}
+.sheet .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px 16px;border-top:1px solid #eee}
+.notif{position:absolute;top:34px;left:8px;right:8px;z-index:6;background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:10px 12px;font-size:13px;cursor:pointer;border:none;text-align:left;font-family:inherit;color:#222;animation:drop .4s ease-out}
+.notif small{display:block;color:#666;font-size:11px}
+@keyframes drop{from{transform:translateY(-20px);opacity:.3}to{transform:none;opacity:1}}
+/* WhatsApp */
+.wah{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border-bottom:1px solid #eee;flex:0 0 auto}
+.logo{width:38px;height:38px;border-radius:50%;background:#5E1A47;color:#F7A928;display:grid;place-items:center;font:800 22px var(--f-ui);flex:0 0 auto}
+.wah b{display:block;font-size:16px}
+.wah small{color:#555}
+.tick{color:#1D9BF0}
+.chat{flex:1;overflow-y:auto;background:#EFE7DD;padding:10px;display:flex;flex-direction:column;gap:8px}
+.chat>*{flex-shrink:0}
+.wb{max-width:88%;background:#fff;border-radius:12px;font-size:13.5px;box-shadow:0 1px 0 rgba(0,0,0,.08);align-self:flex-start;overflow:hidden}
+.wb .tx{padding:8px 10px 4px}
+.wb .tm{display:block;text-align:right;font-size:10px;color:#777;padding:0 10px 6px}
+.wb .card{background:#F5EEF6;border-radius:8px;padding:6px 8px;margin-bottom:6px;font-size:12px;color:#3a2340}
+.wb .qb{display:block;width:100%;border:none;border-top:1px solid #E6E6E6;background:#fff;color:#0A8A6E;font:700 14px var(--f-ui);padding:9px;cursor:pointer}
+.wb .qb[disabled]{color:#9BB8B0;cursor:default}
+.wb .qb.red{color:#C0262D}
+.wb .qb.red[disabled]{color:#E3A6A9}
+.wo{align-self:flex-end;background:#D9FDD3;border-radius:12px;padding:7px 10px;font-size:13.5px;max-width:80%;box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.wo small{display:block;text-align:right;font-size:10px;color:#557}
+.wsys{align-self:center;background:#FFF5C8;color:#5b4a00;font-size:11.5px;border-radius:8px;padding:4px 10px;text-align:center;max-width:90%}
+.wff{align-self:center;background:#4A1548;color:#fff;border:none;border-radius:999px;padding:8px 14px;font:700 13px var(--f-ui);cursor:pointer}
+.wff.alt{background:#fff;color:#4A1548;border:1.5px solid #4A1548}
+.wabar{display:flex;gap:8px;align-items:center;padding:8px;background:#EFE7DD;flex:0 0 auto}
+.wabar span{flex:1;background:#fff;border-radius:999px;padding:9px 14px;color:#888}
+.wabar i{width:40px;height:40px;border-radius:50%;background:#1DAA61;color:#fff;display:grid;place-items:center;font-style:normal}
+/* ops apps */
+.oph{display:flex;gap:10px;align-items:center;padding:10px 14px;color:#fff;flex:0 0 auto}
+.oph .av{width:34px;height:34px;border-radius:9px;background:#FFC83D;color:#1F2A44;display:grid;place-items:center;font-weight:800}
+.oph b{display:block}.oph small{opacity:.8;font-size:11px}
+.opb{flex:1;overflow-y:auto;background:#F2F4F8;padding:12px;display:flex;flex-direction:column;gap:10px}
+.oc{background:#fff;border-radius:12px;padding:10px 12px;border:1px solid #E1E5EE}
+.oc h5{margin:0 0 6px;font-size:12px;color:#5a6378;text-transform:uppercase;letter-spacing:.05em}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px}
+.t-ok{background:#DDF4E4;color:#0E7A3A}.t-warn{background:#FFE7C2;color:#8a4b00}.t-bad{background:#FBE0E0;color:#B3261E}.t-new{background:#FFE3EF;color:#C2185B}.t-mut{background:#ECECF2;color:#555}
+.gate{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eee}
+.gate:last-child{border-bottom:none}
+.gi{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;flex:0 0 auto}
+.gi.p{background:#0E7A3A}.gi.f{background:#C0262D}
+.call{flex:1;background:linear-gradient(180deg,#2B2F3A,#14161C);color:#fff;display:flex;flex-direction:column;align-items:center;padding:22px 16px 16px;gap:10px;text-align:center}
+.call .q{background:rgba(255,255,255,.1);border-radius:12px;padding:10px;font-size:13.5px}
+.sms{background:#fff;color:#1d1d1f;border-radius:14px;padding:10px 12px;font-size:13px;text-align:left;width:100%}
+.tg{display:flex;background:rgba(255,255,255,.14);border-radius:999px;padding:3px;gap:3px}
+.tg button{border:none;border-radius:999px;padding:5px 12px;font:700 12px var(--f-ui);background:transparent;color:#fff;cursor:pointer}
+.tg .on{background:#fff;color:#14161C}
+.cb{display:flex;gap:10px;width:100%;margin-top:auto}
+.cb button{flex:1;border:none;border-radius:14px;padding:12px 6px;font:700 14px var(--f-ui);cursor:pointer;color:#fff}
+.lock{flex:1;background:linear-gradient(160deg,#5A2A63,#1E1022);padding:16px 12px;display:flex;flex-direction:column;gap:10px}
+.clock{color:#fff;text-align:center;font:800 52px var(--f-ui);line-height:1}
+.clock small{display:block;font:500 13px var(--f-ui);opacity:.8;margin-top:4px}
+.push{background:#fff;border-radius:16px;padding:10px 12px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.days{display:flex;gap:6px}
+.days button{flex:1;border:1.5px solid #D9D3DE;background:#fff;border-radius:8px;padding:6px;font:700 12px var(--f-ui);cursor:pointer;color:#333}
+.days .on{border-color:#9F2089;color:#9F2089;background:#FBF0FB}
+.big{font:800 26px var(--f-ui)}
+
+/* ---------- RIGHT: synced views ---------- */
+.right{display:flex;flex-direction:column;gap:12px;min-width:0}
+.vt{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.vt button{position:relative;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.vt button .dot{width:8px;height:8px;border-radius:50%}
+.vt button.on{border-color:var(--ink);box-shadow:inset 0 -3px 0 var(--pink)}
+.vt button .nw{position:absolute;top:-6px;right:-6px;background:var(--pink);color:#fff;border-radius:999px;font-size:10px;padding:0 6px;line-height:16px}
+.vt label{margin-left:auto;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.pan{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.pan h3{margin:0 0 10px;font:600 12px var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 12px;font-size:14px}
+@media (max-width:480px){.kv{grid-template-columns:minmax(0,1fr)}}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:1px 8px;margin:1px 2px 1px 0}
+.p-ok{background:var(--ok-soft);color:var(--ok)}.p-warn{background:var(--warn-soft);color:var(--warn)}.p-bad{background:var(--bad-soft);color:var(--bad)}.p-mut{background:var(--sunk);color:var(--muted)}.p-new{background:var(--sunk);color:var(--pink)}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;font-size:13.5px}
+.log li{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:8px;align-items:start;padding:7px 9px;border-radius:9px;background:var(--bg);border:1px solid var(--line)}
+.log li.n{border-color:var(--pink)}
+.log .t{font:12px var(--f-mono);color:var(--muted);white-space:nowrap}
+.src{font:700 10px var(--f-mono);text-transform:uppercase;border-radius:5px;padding:1px 5px;color:#fff;white-space:nowrap}
+.s-sys{background:#5B5B78}.s-hub{background:#1F2A44}.s-rider{background:#2F6F73}.s-ct{background:#4A1548}.s-seller{background:#8A4B00}.s-cust{background:#9F2089}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.flow span{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+.flow span.on{border-color:var(--pink);color:var(--pink);font-weight:700}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg)}
+.tile .k{font-size:12px;color:var(--muted)}
+.tile .v{font:800 22px var(--f-display);font-variant-numeric:tabular-nums}
+.causes{display:flex;flex-wrap:wrap;gap:5px}
+.causes span{font:600 11px var(--f-mono);border-radius:6px;padding:2px 6px;background:var(--sunk);color:var(--muted)}
+.causes span.on{background:var(--pink);color:#fff}
+.causes span.out{background:var(--warn-soft);color:var(--warn)}
+.empty{color:var(--muted);font-size:14px}
+/* home + dashboard */
+.home{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;margin-top:16px}
+@media (max-width:900px){.home{grid-template-columns:minmax(0,1fr)}}
+.ptiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.pt2{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);text-align:left;cursor:pointer;color:var(--ink);font:inherit;display:flex;flex-direction:column;gap:4px}
+.pt2:hover{border-color:var(--pink)}
+.pt2 b{font:700 16px var(--f-display);color:var(--accent-ink)}
+.pt2 small{color:var(--muted);font-size:13px}
+.pt2 .sl{font:600 11px var(--f-mono);color:var(--pink)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 10px;font-weight:600;font-size:13px;cursor:pointer}
+.seg button.on{background:var(--plum);color:var(--on-accent);border-color:var(--plum)}
+.dash{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.two{grid-template-columns:minmax(0,1fr)}}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl th,.tbl td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{font:600 11px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.tbl td.r{text-align:right;font-family:var(--f-mono)}
+.scroll{overflow-x:auto}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:150px minmax(0,1fr) 52px;gap:10px;align-items:center;font-size:14px}
+@media (max-width:480px){.bar{grid-template-columns:100px minmax(0,1fr) 44px}}
+.bar .tr{height:14px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.bar .fl{height:100%;background:var(--pink);border-radius:4px;display:block}
+.bar .n{font-family:var(--f-mono);text-align:right}
+.rng{display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:10px;align-items:center;font-size:14px;padding:4px 0}
+@media (max-width:560px){.rng{grid-template-columns:minmax(0,1fr) 70px}.rng input{grid-column:span 2}}
+.rng input{width:100%;accent-color:#C2185B}
+.rng output{font-family:var(--f-mono);text-align:right}
+.stagecards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.sc{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--bg)}
+.sc h4{margin:0 0 4px;font:700 15px var(--f-display)}
+.final{background:var(--plum);color:var(--on-accent);border-radius:16px;padding:18px 20px}
+.final h3{margin:0 0 6px;font:800 24px var(--f-display)}
+.final .tiles .tile{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25)}
+.final .tile .k{color:inherit;opacity:.85}
+.drawer{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;justify-content:flex-end}
+.drawer .in{width:min(460px,100%);height:100%;background:var(--surface);padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.x{align-self:flex-end;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700}
+.note{font-size:12px;color:var(--muted)}
+footer{margin-top:24px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="top"><div class="wrap" style="padding-block:0">
+  <div class="row">
+    <div class="brand"><b>Intent Control Tower</b><small>Team The Third Factor · IIT Kanpur · Meesho DICE S3 · concept prototype, sample data</small></div>
+    <div class="cov" id="cov"></div>
+  </div>
+  <nav class="paths" id="paths" aria-label="Prototype paths"></nav>
+</div></div>
+<div class="wrap">
+  <main id="app" aria-live="polite"></main>
+  <footer>Concept prototype for the Meesho DICE Challenge S3 by Team The Third Factor. Not a Meesho product. Screens recreate the Meesho app layout for illustration; orders, names and phone numbers are sample data. Numbers follow slides 6–12 of our deck; [A] = our assumption, tested in the pilot.</footer>
+</div>
+<div id="drawer"></div>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const A={
+  lucknow:{key:'lucknow',line:'H.No 22, Sector B',area:'Aliganj, Lucknow',city:'Lucknow',state:'Uttar Pradesh',pin:'226024'},
+  gps:{key:'gps',line:'Block A, Block 2',area:'Kalyanpur, Main Drive',city:'Kanpur',state:'Uttar Pradesh',pin:'208016'},
+  hall:{key:'hall',line:'Hall 3, Room 214',area:'IIT Kanpur, Kalyanpur',city:'Kanpur',state:'Uttar Pradesh',pin:'208016'},
+  jaipur:{key:'jaipur',line:'Plot 12',area:'Malviya Nagar',city:'Jaipur',state:'Rajasthan',pin:'302017'}
+};
+const CAT={
+ shoes:{item:"Men's Running Shoes",sub:'Lightweight Mesh',emo:'👟',price:599,mrp:1299,cat:'Footwear',rate:'4.2',n:'12,840',sizes:['UK 6','UK 7','UK 8','UK 9','UK 10'],seller:'StepUp Footwear (Surat)'},
+ vase:{item:'Ceramic Flower Vase',sub:'Matte finish · 10 inch',emo:'🏺',price:250,mrp:499,cat:'Home & Living',rate:'4.1',n:'3,210',sizes:null,seller:'StepUp Home Décor (Surat)'},
+ kurta:{item:'Cotton Printed Kurta',sub:'Straight fit',emo:'👚',price:449,mrp:999,cat:'Kurtis',rate:'4.0',n:'8,902',sizes:['S','M','L','XL'],seller:'Jaipur Prints (Jaipur)'},
+ saree:{item:'Georgette Saree',sub:'With blouse piece',emo:'🥻',price:529,mrp:1199,cat:'Kurtis',rate:'4.1',n:'21,455',sizes:null,seller:'Surat Silks (Surat)'},
+ teddy:{item:'Soft Teddy Bear',sub:'2 feet',emo:'🧸',price:349,mrp:799,cat:'Kids',rate:'4.3',n:'6,118',sizes:null,seller:'Toy Town (Delhi)'},
+ lipstick:{item:'Matte Lipstick Set',sub:'Pack of 4',emo:'💄',price:199,mrp:499,cat:'Beauty',rate:'3.9',n:'15,307',sizes:null,seller:'Glam Co. (Mumbai)'},
+ pan:{item:'Non-stick Fry Pan',sub:'24 cm',emo:'🍳',price:399,mrp:899,cat:'Kitchen',rate:'4.2',n:'4,440',sizes:null,seller:'HomeChef (Ludhiana)'},
+ earrings:{item:'Gold-plated Earrings',sub:'Jhumka style',emo:'💍',price:179,mrp:599,cat:'Jewellery',rate:'4.0',n:'9,876',sizes:null,seller:'Kundan Art (Jaipur)'},
+ earbuds:{item:'Wireless Earbuds',sub:'40 h battery',emo:'🎧',price:899,mrp:2499,cat:'Electronics',rate:'4.0',n:'31,002',sizes:null,seller:'SoundMax (Delhi)'}};
+const offP=p=>Math.round((1-p.price/p.mrp)*100);
+const CAUSES=[['1.1','Impulse COD'],['1.2','Changed mind'],['1.3','Family refused'],['2.1','Not at home'],['2.2','Cash not ready'],['2.3','Unreachable'],['2.4','No reschedule'],['3.1','House not found'],['3.2','Wrong PIN'],['3.3','Old address'],['3.4','Wrong map pin'],['4.1','No real attempt'],['4.2','Pushed cancel'],['5.1','Fake order'],['5.2','Parcel trust']];
+const PATHS=[['H','Home'],['P0','P0 Checkout'],['P1','P1 Msg 1'],['P2','P2 Msg 2'],['P3','P3 Msg 3'],['P4','P4 Hub · Rider · Door'],['P5','P5 Fraud Guard'],['P6','P6 Local Recovery'],['P7','P7 Impact & Rollout']];
+const S={tour:true,path:'H',scr:'H',hist:[],view:'ct',follow:true,cov:new Set(),out:new Set(),prof:'high',drawer:false,logs:{},seen:{},dash:{sel:0,scen:'base',gate:'pass',ks:{del:1,rid:1,net:1930,exe:96,cmp:0.2}}};
+let O;
+function newOrder(){
+  const p=S.prof;
+  return {id:'MF42873192',pkey:'shoes',item:"Men's Running Shoes",emo:'👟',mrp:1299,price:599,size:null,pay:p==='prepaid'?'PREPAID':'COD',payChoice:'COD',profile:p,
+    addr:{key:'none',line:'',area:'',city:'',state:'',pin:'',v:0,verified:false,src:'No address yet (first-time buyer)'},receiver:null,
+    stage:0,cancelled:false,rto:false,delivered:false,held:false,locked:false,
+    chat:[],phase:null,m2idx:0,m3idx:0,hubTrained:true,frozen:false,resched:0,slot:null,pinHint:null,hubQ:[],exec:null,
+    map:{pin:null,house:'',chk:false},man:{house:'',err:false},edit:'minor',editErr:false,clock:'Sat 4 Oct · 10:02',outcome:null,toast:null};
+}
+function risk(){return O.profile==='high'?0.71:O.profile==='low'?0.18:0.09;}
+function logArr(){const k=S.path;return S.logs[k]||(S.logs[k]=[]);}
+function ev(src,txt){const L=logArr();L.forEach(x=>x.n=false);L.push({src,txt,t:(S.path==='P5'||S.path==='P6')?(S.path==='P5'?S.f.clock:S.l.clock):O.clock,n:true});
+  S.seen[src]=(S.seen[src]||0)+1; if(S.follow&&['sys','hub','rider','ct'].includes(src))S.view=src;}
+function cov(...ids){ids.forEach(i=>S.cov.add(i));}
+function outc(...ids){ids.forEach(i=>S.out.add(i));}
+function go(id){S.hist.push(S.scr);S.scr=id;}
+function LOC(a){a=a||(O&&O.addr)||{};const c=(a.city||'').trim().toLowerCase();
+ if(c==='lucknow')return {hub:'Aliganj hub',lmdc:'Aliganj LMDC, Lucknow',near:'Sector B park gate',far:'Hazratganj',other:'Malviya Nagar, Jaipur',stops:['Shop 9, Kapoorthala Market','Sector C, Aliganj']};
+ if(c==='jaipur')return {hub:'Malviya Nagar hub',lmdc:'Malviya Nagar LMDC, Jaipur',near:'Plot 12 main gate',far:'Raja Park',other:'Aliganj, Lucknow',stops:['Shop 3, Gaurav Tower','Plot 40, Malviya Nagar']};
+ if(!c||c==='kanpur')return {hub:'Kalyanpur hub',lmdc:'Kalyanpur LMDC',near:'Hall 3 gate',far:'Kalyanpur market',other:'Malviya Nagar, Jaipur',stops:['Shop 4, Kalyanpur Market','Hall 1, IIT Kanpur']};
+ const C=a.city.trim();return {hub:C+' hub',lmdc:C+' LMDC',near:'Main gate near your address',far:C+' market',other:'Malviya Nagar, Jaipur',stops:['Shop 2, '+C+' Market','Sector 4, '+C]};}
+function addrTxt(a){if(a.key==='none')return 'Not added yet';return `${a.line}, ${a.area}, ${a.city}, ${a.state}, ${a.pin}`;}
+
+/* ---------- shared phone bits ---------- */
+const sbar=()=>`<div class="sb"><span>${(O&&O.clock.split('· ')[1])||'10:02'}</span><span>5G ▮▮▮ 82%</span></div>`;
+function phone(inner,dark){return `<div class="phone"><div class="scr ${dark?'dark':''}">${sbar()}${inner}${S.ptoast?`<div class="ptoast">${S.ptoast}</div>`:''}</div></div>`;}
+function mzh(t,o={}){return `<div class="mzh">${o.back===false?'':'<button class="bk" data-a="back" aria-label="Back">‹</button>'}<span>${t}</span>${o.step?`<span class="step">${o.step}</span>`:''}${o.help?'<span class="help">☎ HELP</span>':''}</div>`;}
+const navBar=(on)=>`<div class="nav">${[['⌂','Home'],['▦','Categories'],['✪','Mall'],['▶','Video Finds'],['📦','My Orders']].map(([i,l],k)=>`<button class="${k===on?'on':''}" data-a="nav" data-v="${k}"><b>${i}</b>${l}</button>`).join('')}</div>`;
+function wa(chat){return `<div class="wah"><button class="bk" data-a="back" style="background:none;border:none;font-size:20px;cursor:pointer" aria-label="Back">←</button><div class="logo">m</div><div><b>Meesho <span class="tick">✔</span></b><small>Business Account</small></div></div><div class="chat" id="chat">${chat}</div><div class="wabar"><span>Message</span><i>🎤</i></div>`;}
+function ops(name,sub,color,body){return `<div class="oph" style="background:${color}"><div class="av">${name[0]}</div><div><b>${name}</b><small>${sub}</small></div></div><div class="opb">${body}</div>`;}
+const prodRow=()=>`<div style="display:flex;gap:12px;align-items:center"><div class="pimg" style="width:64px;font-size:34px">${O.emo}</div><div><div style="font-weight:600">${O.item}</div><div class="pp">₹${O.price}<s>₹${O.mrp.toLocaleString('en-IN')}</s><em>${offP(O)}% off</em></div><div style="font-size:12px;color:#666">${O.size?'Size: '+O.size+' · ':''}Qty: 1</div></div></div>`;
+
+/* ---------- chat model ---------- */
+function msgIn(text,o={}){O.chat.push(Object.assign({k:'in',text},o));}
+function msgOut(text){O.chat.push({k:'out',text});}
+function sysC(text){O.chat.push({k:'sys',text});}
+function ffC(label,a,v,alt){O.chat.push({k:'ff',label,a,v,alt});}
+function lockBtns(){O.chat.forEach(m=>{if(m.btns)m.used=true;});}
+function dropFF(){O.chat=O.chat.filter(m=>m.k!=='ff');}
+function chatHtml(){return O.chat.map(m=>{
+  if(m.k==='sys')return `<div class="wsys">${m.text}</div>`;
+  if(m.k==='ff')return `<button class="wff ${m.alt?'alt':''}" data-a="${m.a}" data-v="${m.v||''}">${m.label}</button>`;
+  if(m.k==='out')return `<div class="wo">${m.text}<small>${O.clock.split('· ')[1]} ✓✓</small></div>`;
+  return `<div class="wb"><div class="tx">${m.card?`<div class="card">${m.card}</div>`:''}${m.text}${m.foot?`<div style="font-size:11.5px;color:#666;margin-top:4px">${m.foot}</div>`:''}</div><span class="tm">${O.clock.split('· ')[1]}</span>${(m.btns||[]).map(b=>`<button class="qb ${b[2]||''}" data-a="${b[1]}" data-v="${b[3]||''}" ${m.used?'disabled':''}>${b[0]}</button>`).join('')}</div>`;}).join('');}
+
+/* ---------- right side: synced views ---------- */
+const STG=['Placed','Confirmed','Packed','Shipped','At hub','Out for delivery','Delivered'];
+function statusPill(){if(!O.placed)return '<span class="pill p-mut">Not placed yet (customer is shopping)</span>';if(O.cancelled)return '<span class="pill p-ok">Cancelled before dispatch</span>';if(O.held)return '<span class="pill p-warn">Held · fraud check</span>';if(O.rto)return '<span class="pill p-bad">RTO · returning</span>';if(O.delivered)return '<span class="pill p-ok">Delivered</span>';
+  return `<span class="pill p-mut">${STG[O.stage]}</span>${O.resched?`<span class="pill p-warn">Rescheduled · ${O.slot}</span>`:''}`;}
+function sysView(){
+  if(S.path==='P5'){const f=S.f;return `<div class="pan"><h3><span>Meesho account record</span><span>Harsh · 98XXX0042</span></h3><dl class="kv">
+    <dt>Trusted device</dt><dd>Samsung A14 · Kanpur <span class="pill p-ok">Trusted</span></dd>
+    <dt>Other sessions</dt><dd>${f.newDev?(f.loggedOut?'Redmi Note 12 <span class="pill p-ok">Logged out</span>':'Redmi Note 12 · 1 min ago <span class="pill p-warn">New device</span>'):'None'}</dd>
+    <dt>Saved UPI</dt><dd>harsh@okaxis <span class="pill p-ok">Locked on new devices (exists today)</span></dd>
+    <dt>Bank / payout setup</dt><dd>${f.bank==='blocked'?'<span class="pill p-bad">Blocked · 24 h cooling</span>':f.bank==='ok'?'<span class="pill p-ok">Added after step-up</span>':f.bank==='pending'?'<span class="pill p-warn">Step-up pending</span>':'Not set'}</dd>
+    <dt>Orders from new device</dt><dd>${f.fakeOrder?(f.held?'COD #MF55120931 <span class="pill p-ok">Held · owner reported</span>':f.caught===false?'COD #MF55120931 <span class="pill p-bad">Shipped</span>':'COD #MF55120931 <span class="pill p-warn">Awaiting Msg 1 reply</span>'):'None'}</dd>
+    <dt>Rule</dt><dd>Step-up only on risky new-device actions · human review · no auto-ban</dd></dl></div>${logPan('sys')}`;}
+  if(S.path==='P6'){const l=S.l,it=ITEMS[l.item];return `<div class="pan"><h3><span>Parcel record</span><span>AWB ${l.awb}</span></h3><dl class="kv">
+    <dt>Item</dt><dd>${it.name} · ₹${it.price} · ${it.cat}</dd><dt>Original order</dt><dd>RTO <span class="pill p-bad">Counted</span> (never erased)</dd>
+    <dt>Recovery state</dt><dd>${l.state}</dd><dt>Original buyer</dt><dd>Household, address, device, payment <span class="pill p-ok">Blocked for this AWB</span></dd>
+    <dt>Seller floor</dt><dd>₹185 net (seller's one-time setting)</dd></dl></div>${logPan('sys')}`;}
+  const p=O.profile, elig=p==='high'&&O.pay==='COD';
+  return `<div class="pan"><h3><span>Meesho order record (single source of truth)</span><span>#${O.id} · address v${O.addr.v}</span></h3><dl class="kv">
+  <dt>Status</dt><dd>${statusPill()}</dd>
+  <dt>Payment</dt><dd>${O.pay==='COD'?'Cash on delivery ₹'+O.price:'Prepaid ₹'+(O.price-25)}</dd>
+  <dt>Delivery address</dt><dd>${esc(addrTxt(O.addr))}<br>${O.addr.key==='none'?'':O.addr.verified?'<span class="pill p-ok">Building pin + line verified</span>':'<span class="pill p-warn">Not verified</span>'}${O.locked?'<span class="pill p-mut">Route locked</span>':''}<span class="pill p-mut">${esc(O.addr.src)}</span></dd>
+  <dt>Receiver</dt><dd>${O.receiver?esc(O.receiver):'Harsh · 98XXX0042'}</dd>
+  <dt>RTO-risk score</dt><dd>${risk()} ${p==='high'?'<span class="pill p-bad">Top 25% COD</span>':p==='low'?'<span class="pill p-ok">Low-risk COD</span>':'<span class="pill p-ok">Prepaid</span>'}</dd>
+  <dt>Messages</dt><dd>Msg 1 ✓ every order · Msg 2 ${elig?'<span class="pill p-new">eligible</span>':'<span class="pill p-mut">not sent</span>'} · Msg 3 ✓ every order</dd>
+  <dt>Experiment</dt><dd>${elig?'High-risk COD split 50:50 · this order = Treatment':'Not in the Msg 2 test'}</dd></dl></div>${logPan('sys')}`;}
+function hubView(){
+  if(S.path==='P6'){const l=S.l;return `<div class="pan"><h3><span>Valmo hub · Kalyanpur LMDC</span><span>Local Recovery Stage 1</span></h3><div class="tiles">
+   <div class="tile"><div class="k">Hold shelf</div><div class="v">${l.shelf} / 40</div></div><div class="tile"><div class="k">72 h timer</div><div class="v">${l.timer}</div></div><div class="tile"><div class="k">Candidates / day</div><div class="v">~15</div><div class="k">1,200 × 17% × 7.3%</div></div></div></div>${logPan('hub')}`;}
+  if(S.path==='P5')return `<div class="pan"><h3><span>Valmo hub</span></h3><p class="empty">${S.f.held?'Order #MF55120931 held before dispatch. It never reaches the hub.':'Nothing for the hub in this story unless the fake order ships.'}</p></div>${logPan('hub')}`;
+  return `<div class="pan"><h3><span>Valmo hub · ${LOC().lmdc}</span><span>Fri 10 Oct</span></h3><dl class="kv">
+  <dt>'Another day' option</dt><dd>${O.hubTrained?'<span class="pill p-ok">ON · staff trained</span>':'<span class="pill p-bad">OFF in this hub</span>'}</dd>
+  <dt>Run-sheet freeze</dt><dd>10:30 ${O.frozen?'<span class="pill p-warn">Frozen</span>':'<span class="pill p-ok">Open</span>'}</dd>
+  <dt>Action execution (7 days)</dt><dd>${O.exec==='miss'?'86% <span class="pill p-bad">below 90%</span>':'96% <span class="pill p-ok">≥ 90%</span>'}</dd>
+  <dt>Exception queue</dt><dd>${O.hubQ.length?O.hubQ.map(q=>`${q.t}: ${q.d} ${q.st==='done'?'<span class="pill p-ok">Executed</span>':q.st==='miss'?'<span class="pill p-bad">Missed</span>':'<span class="pill p-warn">Pending</span>'}`).join('<br>'):'Empty for this order'}</dd></dl></div>${logPan('hub')}`;}
+function riderView(){
+  if(S.path!=='P0'&&S.path!=='P1'&&S.path!=='P2'&&S.path!=='P3'&&S.path!=='P4')return `<div class="pan"><h3><span>Rider app · Ravi</span></h3><p class="empty">${S.path==='P6'?(S.l.state.includes('Sold')?'New local delivery task: new AWB, prepaid, 2 km.':'No rider task yet.'):'No rider task in this story.'}</p></div>${logPan('rider')}`;
+  let t;if(O.cancelled)t='No task. The order never shipped.';else if(O.held)t='No task. Order held.';else if(O.stage<4)t='Not on any run sheet yet.';
+  else if(O.resched&&O.exec!=='miss'&&!O.delivered)t=`Removed from today's Wave 11–2 → appears on ${O.slot}`;else t=`Wave 11–2 · ${O.pay==='COD'?'collect ₹'+O.price:'prepaid, nothing to collect'}${O.pinHint?' · 📍 pin hint: '+O.pinHint:''}${O.delivered?' · Delivered ✓':O.rto?' · Refused':''}`;
+  return `<div class="pan"><h3><span>Rider app · Ravi</span><span>AWB 1490 2235 7781</span></h3><p style="margin:0">${t}</p></div>${logPan('rider')}`;}
+function ctView(){
+  const L=logArr();
+  let tiles='';
+  if(S.path==='P6'){tiles=`<div class="tiles"><div class="tile"><div class="k">Return trip avoided</div><div class="v">+₹120</div></div><div class="tile"><div class="k">Local last mile + hold + relabel</div><div class="v">−₹31</div></div><div class="tile"><div class="k">Gain per recovery</div><div class="v">+₹89</div></div><div class="tile"><div class="k">Break-even · scale gate</div><div class="v">5.3% · 16%</div></div></div>`;}
+  else if(S.path!=='P5'){const st=O.cancelled?'Cancelled pre-dispatch':O.rto?'RTO':O.delivered?'Delivered':O.held?'Held':STG[O.stage];
+    const val=O.cancelled?'₹170 never spent':O.delivered&&O.resched?'₹120 return trip avoided':O.delivered?'No RTO':O.rto?'−₹170 (RTO)':'—';
+    tiles=`<div class="tiles"><div class="tile"><div class="k">Order state</div><div class="v" style="font-size:18px">${st}</div></div><div class="tile"><div class="k">Value of this order's path</div><div class="v" style="font-size:18px">${val}</div></div><div class="tile"><div class="k">Per 1,000 orders (base)</div><div class="v" style="font-size:18px">−27 RTOs · +₹1,930</div></div></div>`;}
+  const steps=['Signal','State','Action','Execution','Outcome'];const lvl=Math.min(4,Math.floor(L.length/2));
+  return `<div class="pan"><h3><span>Control Tower</span><span>${S.path==='P5'?'Fraud Guard':S.path==='P6'?'Local Recovery':'Order #'+O.id}</span></h3>
+  <div class="flow">${steps.map((s,i)=>`<span class="${i<=lvl&&L.length?'on':''}">${s}</span>${i<4?'→':''}`).join('')}</div>${tiles?'<div style="margin-top:10px">'+tiles+'</div>':''}</div>
+  <div class="pan"><h3><span>Root causes covered in this session</span><span>${S.cov.size} fixed · ${S.out.size} shown as outside scope</span></h3><div class="causes">${CAUSES.map(([i,n])=>`<span class="${S.cov.has(i)?'on':S.out.has(i)?'out':''}" title="${n}">${i} ${n}</span>`).join('')}</div></div>
+  ${logPan('all')}`;}
+function logPan(src){const L=logArr().filter(x=>src==='all'||x.src===src);
+  return `<div class="pan"><h3><span>${src==='all'?'Event timeline (every view)':'Events'}</span><span>${L.length}</span></h3>${L.length?`<ul class="log">${L.slice().reverse().map(x=>`<li class="${x.n?'n':''}"><span class="t">${esc(x.t.split('· ')[1]||x.t)}</span><span class="src s-${x.src}">${{sys:'Meesho',hub:'Hub',rider:'Rider',ct:'CT',seller:'Seller',cust:'Customer'}[x.src]}</span><span>${x.txt}</span></li>`).join('')}</ul>`:'<p class="empty">Nothing yet. Tap on the phone.</p>'}</div>`;}
+function rightSide(){
+  const tabs=[['sys','Meesho system','var(--sys)'],['hub','Valmo hub','var(--hub)'],['rider','Rider','var(--rider)'],['ct','Control Tower','var(--ct)']];
+  const body=S.view==='sys'?sysView():S.view==='hub'?hubView():S.view==='rider'?riderView():ctView();
+  return `<div class="right"><div class="vt" role="tablist">${tabs.map(([k,l,c])=>`<button role="tab" aria-selected="${S.view===k}" class="${S.view===k?'on':''}" data-a="view" data-v="${k}"><span class="dot" style="background:${c}"></span>${l}</button>`).join('')}<label><input type="checkbox" id="follow" ${S.follow?'checked':''}> Follow changes</label></div>${body}</div>`;}
+
+/* ================= SCREENS: main order story (P0–P4) ================= */
+const SC={};
+const BLD=[['Hall 1',10,18,64,36,1],['Hall 3',86,18,64,36,1],['Library',10,104,72,36,1],['Block 2 (GPS guess)',96,128,96,34,1],['Shops · 208017',238,40,58,92,0]];
+const deliv=()=>`<div class="deliv" data-a="deliv" style="cursor:pointer">📍 ${O.addr.key==='none'?'Add your delivery location':'Delivering to '+O.addr.area.split(',')[0]+' - '+O.addr.pin} ›</div>`;
+const CATS=[['👗','All Categories','all'],['🥻','Kurtis','Kurtis'],['🧸','Kids','Kids'],['🏺','Home','Home & Living'],['💄','Beauty','Beauty'],['👟','Footwear','Footwear'],['🍳','Kitchen','Kitchen'],['💍','Jewellery','Jewellery']];
+const pcard=k=>{const p=CAT[k];return `<button class="pcard" data-a="prod" data-v="${k}"><div class="pimg">${p.emo}</div><div class="pt">${p.item} · ${p.sub}</div><div class="pp">₹${p.price}<s>₹${p.mrp.toLocaleString('en-IN')}</s><em>${offP(p)}% off</em></div><div class="offer">₹${p.price-25} with 1 Special Offer</div><span class="rate">${p.rate} ★</span></button>`;};
+SC.C1=()=>({who:'Customer · Meesho app',g:['Meesho home','Same as today\'s app. Tap any product, category, the search bar or the sale banner and buy whatever you like: the rest of the story follows that product.','Slide 6 · starting point'],
+ html:phone(`<div class="body"><div style="display:flex;align-items:center;gap:10px;padding:10px 14px"><button class="ib" data-a="info" data-v="acct" style="width:34px;height:34px;border-radius:50%;background:#FFE3B8;display:grid;place-items:center">🙂</button><button class="ib" data-a="info" data-v="refer" style="background:#FDEBF3;color:#9F2089;border-radius:999px;padding:4px 10px;font-weight:700;font-size:12px">🎁 Refer and Earn</button><span style="margin-left:auto;font-size:18px;display:flex;gap:10px"><button class="ib" data-a="info" data-v="wish" aria-label="Wishlist">♡</button><button class="ib" data-a="info" data-v="cart" aria-label="Cart">🛒</button></span></div>
+ <button class="srch" style="width:calc(100% - 28px);text-align:left;background:#fff;cursor:pointer;font:inherit" data-a="cat" data-v="all">🔍 Search by Keyword or Product ID</button>${deliv()}
+ <div class="cats">${CATS.map(c=>`<button class="cat" style="background:none;border:none;cursor:pointer;font:inherit" data-a="cat" data-v="${c[2]}"><i>${c[0]}</i>${c[1].replace('All Categories','All Categ…')}</button>`).join('')}</div>
+ <button class="banner" style="border:none;width:calc(100% - 20px);cursor:pointer" data-a="cat" data-v="all">MEGA BLOCKBUSTER SALE · UPTO 80% OFF ›</button>
+ <div class="grid2">${['shoes','vase','earbuds','kurta','teddy','lipstick'].map(pcard).join('')}</div></div>${navBar(0)}`)});
+SC.CL=()=>{const cat=O.catSel||'all';const ks=Object.keys(CAT).filter(k=>cat==='all'||CAT[k].cat===cat);return {who:'Customer · Meesho app',g:[cat==='all'?'All products':cat,'Pick any product. The checkout, messages and delivery all follow the product you choose.','Slide 6'],
+ html:phone(`${mzh(cat==='all'?'All categories':cat)}${deliv()}<div class="body"><div style="display:flex;gap:6px;overflow-x:auto;padding:8px 10px">${CATS.map(c=>`<button class="sz ${cat===c[2]?'on':''}" style="flex:0 0 auto" data-a="cat" data-v="${c[2]}">${c[1]}</button>`).join('')}</div><div class="grid2">${ks.map(pcard).join('')}</div></div>${navBar(1)}`)};};
+SC.C2=()=>{const p=CAT[O.pkey];return {who:'Customer · Meesho app',g:['Product page',p.sizes?'Pick a size and tap Buy Now.':'Tap Buy Now.','Slide 6'],
+ html:phone(`${mzh('')}${deliv()}<div class="body"><div style="margin:10px 14px" class="pimg"><span style="font-size:120px">${p.emo}</span></div>
+ <div class="sec"><div style="font-size:15px;color:#555">${p.item} · ${p.sub}</div><div class="pp" style="font-size:24px">₹${p.price}<s>₹${p.mrp.toLocaleString('en-IN')}</s><em>${offP(p)}% off</em></div><div class="offer">₹${p.price-25} with 1 Special Offer ›</div><div style="margin-top:6px"><span class="rate">${p.rate} ★</span> <span style="color:#777;font-size:12px">(${p.n})</span></div></div>
+ ${p.sizes?`<div class="sec"><div style="font-weight:700;margin-bottom:8px">Select Size</div><div class="chipz">${p.sizes.map(s=>`<button class="sz ${O.size===s?'on':''}" data-a="size" data-v="${s}">${s}</button>`).join('')}</div></div>`:''}
+ <div class="sec" style="font-size:13px;color:#555">Sold by: ${p.seller}</div></div>
+ <div class="foot"><button class="btnP" data-a="go" data-v="C3" ${!p.sizes||O.size?'':'disabled'}>▶▶ Buy Now</button></div>`)};};
+SC.C3=()=>{const none=O.addr.key==='none';return {who:'Customer · Meesho app',g:none?['Review your order · first-time buyer','No saved address yet, and the app does not know where the phone is until location is shared. Tap "+ Add delivery address": use current location or type it by hand.','Slide 6-E']:['Review your order','The address now has a confirmed building and house line. Continue to payment.','Slide 6-E'],
+ html:phone(`${mzh('Review your order',{step:'STEP 1/2'})}<div class="body"><div class="green">₹700 OFF on this order</div>${O.toast?`<div class="toast">${O.toast}</div>`:''}<div class="sec">${prodRow()}</div><div class="sec" style="color:#555;font-size:13px">Sold by: ${CAT[O.pkey].seller}</div>
+ <div class="sec"><div style="font-weight:700;font-size:15px">🚚 Delivery address</div>
+ ${none?`<div style="margin-top:8px;font-size:13px;color:#555">No delivery address added yet.</div><div style="margin-top:10px"><button class="btnO" data-a="go" data-v="C5">+ Add delivery address</button></div>`
+ :`<div style="display:flex;gap:10px;margin-top:6px"><div style="flex:1;font-size:13px;color:#444"><b>Harsh</b> • 98XXX0042<br>${esc(addrTxt(O.addr))}${O.receiver?`<br><b>Receiver:</b> ${esc(O.receiver)}`:''}</div><button class="btnG" data-a="go" data-v="C4" style="align-self:flex-start">Change</button></div>
+ ${O.addr.verified?`<div class="okbox" style="margin-top:8px">✓ Building and house line confirmed by the customer</div>`:''}<div style="font-size:13px;margin-top:6px">Estimated Delivery by <b>Friday, 10th Oct</b></div>`}</div>
+ <div class="sec" style="display:flex;justify-content:space-between"><b>Price Details</b><b>₹${O.price}</b></div></div>
+ <div class="foot"><div class="tot">₹${O.price}<small>VIEW PRICE DETAILS</small></div><button class="btnP" style="flex:1" data-a="toPay" ${none?'disabled':''}>Continue</button></div>`),demo:[]};};
+SC.C4=()=>({who:'Customer · Meesho app',g:['Change delivery address','Keep the address you just saved, or add another one.','Slide 6-E'],
+ html:phone(`<div class="mzh"><span>Change delivery address</span><button class="bk" style="margin-left:auto" data-a="back" aria-label="Close">✕</button></div><div class="body"><div class="srch">🔍 Search Address by Name or Phone Number</div>
+ <button class="addrow" data-a="go" data-v="C5" style="color:#9F2089;font-weight:700">+ ADD NEW ADDRESS</button>
+ ${O.addr.key==='none'?'':`<div class="addrow sel"><span class="radio"></span><span><b>Harsh</b><br><span style="color:#555;font-size:13px">${esc(addrTxt(O.addr))}</span></span></div>`}
+ </div><div class="foot"><button class="btnP" data-a="go" data-v="C3">Deliver to this Address</button></div>`)});
+SC.C5=()=>({who:'Customer · Meesho app',g:['Add delivery address','First-time buyer chooses how to add the address: current location (GPS) or typing it by hand, plus an optional receiver. Each path has its own check.','Slide 6-E · causes 3.4, 3.2, 3.1, 2.3'],
+ html:phone(`${mzh('Add delivery address')}<div class="form"><div class="fcard"><div class="fld half"><label>Name *</label><input value="Harsh" readonly></div><div class="fld half"><label>Contact Number *</label><input value="98XXX0042" readonly></div></div>
+ <button class="addrow" data-a="startMap" style="border-radius:12px;color:#9F2089;font-weight:700">◎ Use my current location</button>
+ <button class="addrow" data-a="go" data-v="C7" style="border-radius:12px">✎ Enter address manually</button>
+ <button class="addrow" data-a="go" data-v="C8b" style="border-radius:12px">👤 Ordering for someone else? Add receiver</button></div>`)});
+SC.C6=()=>{const m=O.map;const b=m.pin===null?null:BLD[m.pin];const inside=b&&b[5]===1&&!b[0].startsWith('Block');const out=b&&b[5]===0;
+ const ok=b&&b[5]===1&&!b[0].startsWith('Block')&&m.house.trim().length>2&&m.chk;
+ const px=m.pin===null?144:b[1]+b[3]/2, py=m.pin===null?145:b[2]+b[4]/2;
+ return {who:'Customer · Meesho app',g:['★ Current location → building pin + one-line address','Today Meesho fills the GPS guess and saves in one tap. We keep the auto-filled area, but the customer must type the house / building line and move the pin to the right building. Save unlocks only after both. Try the shops outside the PIN too.','Slide 6-E · causes 3.4, 3.2'],
+ html:phone(`${mzh('Add delivery address')}<div class="form"><div class="new"><b>★ NEW</b> · Tap your exact building. Save unlocks after you confirm the house line.</div>
+ <div class="map" aria-label="Map"><div class="zone"></div><span class="zl" style="left:6px;bottom:6px">PIN 208016</span><span class="zl" style="right:6px;bottom:6px">208017</span><div class="rd" style="left:0;right:0;top:66px;height:14px"></div><div class="rd" style="top:0;bottom:0;left:200px;width:12px"></div>
+ ${BLD.map((x,i)=>`<button class="bd ${m.pin===i?'sel':''} ${x[5]?'':'out'}" data-a="pin" data-v="${i}" style="left:${x[1]}px;top:${x[2]}px;width:${x[3]}px;height:${x[4]}px">${x[0]}</button>`).join('')}<span class="pin" style="left:${px}px;top:${py}px"></span></div>
+ ${out?`<div class="warnbox">⚠ This spot is in <b>208017</b>, but your PIN is <b>208016</b>. Move the pin or change the PIN.</div>`:m.pin===null||(b&&b[0].startsWith('Block'))?`<div class="warnbox">Pin is still on the GPS guess (Block 2, Kalyanpur). Tap the building you live in.</div>`:`<div class="okbox">✓ Pin on ${b[0]}, IIT Kanpur · PIN 208016 matches (GeoIndia)</div>`}
+ <div class="toast" style="margin:0">✓ Area filled from your current location</div><div class="fcard"><div class="fld half"><label>Pincode *</label><input value="208016" readonly></div><div class="fld half"><label>City / State</label><input value="Kanpur, UP" readonly></div><div class="fld"><label>Road / Area ${b&&b[5]===1&&!b[0].startsWith('Block')?'(from pin)':'(from GPS)'}</label><input value="${b&&b[5]===1&&!b[0].startsWith('Block')?b[0]+', IIT Kanpur, Kalyanpur':'Block 2, Kalyanpur, Main Drive'}" readonly></div>
+ <div class="fld"><label style="color:#9F2089">★ House no. / Building Name * (customer types this)</label><input id="mh" value="${esc(m.house)}" placeholder="e.g. Hall 3, Room 214" autocomplete="off"></div>
+ <div style="grid-column:span 2"><button class="sugg" data-a="fillHouse">Hall 3, Room 214</button></div>
+ <label class="chk" style="grid-column:span 2"><input type="checkbox" id="mc" ${m.chk?'checked':''}> I checked this line. The rider will use it.</label></div></div>
+ <div class="foot"><button class="btnP" id="msave" data-a="saveMap" ${ok?'':'disabled'}>Save Address and Continue</button></div>`)};};
+SC.C7=()=>{const m=O.man;return {who:'Customer · Meesho app',g:['★ Landmark-only address check','A typed address that is only a landmark ("near Hanuman Mandir") is hard to find. Tap Save without a house number to see the address check.','Slide 4 · cause 3.1 · GeoIndia'],
+ html:phone(`${mzh('Add delivery address')}<div class="form"><div class="fcard"><div class="fld"><label>Pincode *</label><input value="208016" readonly><span class="ok">✓</span></div><div class="fld half"><label>City *</label><input value="Kanpur" readonly></div><div class="fld half"><label>State *</label><input value="Uttar Pradesh" readonly></div>
+ <div class="fld ${m.err?'err':''}"><label style="color:#9F2089">House no. / Building Name *</label><input id="mh2" value="${esc(m.house)}" placeholder="House / flat / building" autocomplete="off"></div>
+ <div class="fld"><label>Road Name / Area / Colony *</label><input value="near Hanuman Mandir, Kalyanpur" readonly></div></div>
+ ${m.err?`<div class="new"><b>★ NEW · Address check (GeoIndia)</b><br>"near Hanuman Mandir" is a landmark, not an address. Riders often can't find it. Add a house or building number.<div style="margin-top:6px"><button class="sugg" data-a="fillMan">Hall 3, Room 214</button></div></div>`:''}</div>
+ <div class="foot"><button class="btnP" data-a="saveMan">Save Address and Continue</button></div>`)};};
+SC.C8b=()=>({who:'Customer · Meesho app',g:['★ Receiver + alternate number','Ordering for a parent? The rider should call the person at home, not the person who ordered. We add a receiver name and an alternate number.','Slide 4 · cause 2.3 · Slide 6-E'],
+ html:phone(`${mzh('Add receiver')}<div class="form"><div class="new"><b>★ NEW</b> · Who will receive the parcel?</div><div class="fcard"><div class="fld"><label>Receiver name *</label><input value="Ramesh (Papa)" readonly></div><div class="fld half"><label>Receiver phone *</label><input value="98XXX01234" readonly></div><div class="fld half"><label>Alternate number</label><input value="98XXX0042" readonly></div></div></div>
+ <div class="foot"><button class="btnP" data-a="saveRecv">Save receiver</button></div>`)});
+SC.C9=()=>({who:'Customer · Meesho app',g:['Payment method','Same as today, including the existing ₹25 prepaid discount. COD orders get scored for RTO risk the moment they are placed.','Slide 5 · Slide 10'],
+ html:phone(`${mzh('Payment method',{step:'STEP 2/2'})}<div class="body"><div class="green">₹725 OFF on this order</div><div class="sec"><div style="font-weight:600;margin-bottom:10px">Select payment method</div>
+ <button class="addrow ${O.payChoice==='COD'?'sel':''}" data-a="payChoice" data-v="COD" style="border:1.5px solid #ddd;border-radius:10px;margin-bottom:10px"><b style="width:56px">₹${O.price}</b><span style="flex:1">Cash on Delivery 💵</span><span class="radio"></span></button>
+ <button class="addrow ${O.payChoice==='ON'?'sel':''}" data-a="payChoice" data-v="ON" style="border:1.5px solid #9F2089;border-radius:10px"><span style="width:56px"><s style="color:#888;font-size:12px">₹${O.price}</s><br><b style="color:#0E7A3A">₹${O.price-25}</b><br><span class="tag t-ok">Save ₹25</span></span><span style="flex:1">Pay Online (UPI, Wallet, Cards)</span><span class="radio"></span></button></div></div>
+ <div class="foot"><div class="tot">₹${O.payChoice==='COD'?O.price:O.price-25}<small>VIEW PRICE DETAILS</small></div><button class="btnP" style="flex:1" data-a="place">Place Order</button></div>`)});
+SC.C10=()=>({who:'Customer · Meesho app',g:['Order confirmed','Same as today. Watch the Meesho system view: the order gets its RTO-risk score now.','Slide 5'],html:phone(`<button class="confirm" data-a="go" data-v="C11"><span class="c">✓</span><h3>Order Confirmed!</h3><span style="opacity:.8;font-size:13px">Tap to continue</span></button>`)});
+function orderDetails(extra){const st=O.cancelled?['d','x','x','x']:[O.stage>=0?'d':'',O.stage>=3?'d':'',O.stage>=5?'d':'',O.delivered?'d':''];
+ return `${mzh('Order details',{help:true})}<div class="body">${O.toast?`<div class="toast">${O.toast}</div>`:''}<div class="sec" style="display:flex;gap:12px"><div class="pimg" style="width:64px;font-size:34px">${O.emo}</div><div><b>Order #${O.id}</b><div style="font-size:13px">${O.item}</div><div style="font-size:12px;color:#777">${O.size?'Size '+O.size+' · ':''}${O.pay==='COD'?'Cash ₹'+O.price:'Paid ₹'+(O.price-25)}</div></div></div>
+ <div class="sec"><div style="font-weight:700;font-size:16px;color:${O.cancelled?'#C0262D':'#222'}">${O.cancelled?'Order Cancelled':O.held?'Order on hold':'Order Placed'}</div><div style="font-size:13px;color:#555">${O.cancelled?'Stopped before dispatch. Nothing was shipped.':O.held?'We paused this order while we check your account.':'Delivery by Fri, 10 Oct'}</div>
+ <div class="track">${['Ordered','Shipped','Out for Delivery','Delivery'].map((s,i)=>`<span class="${st[i]}"><i>${st[i]==='d'?'✓':st[i]==='x'?'✕':''}</i>${s}</span>`).join('')}</div></div>
+ ${!O.cancelled&&!O.held&&O.stage<3?`<div class="sec" style="display:flex;align-items:center;gap:10px;font-size:13px">Cancellation available till shipping! <button class="btnO" style="width:auto;padding:8px 12px;margin-left:auto" data-a="go" data-v="N5">Cancel Order</button></div>`:''}
+ <div class="sec"><b>📍 Delivery Address</b><div style="font-size:13px;color:#444;margin-top:4px">Harsh<br>${esc(addrTxt(O.addr))}</div></div>${extra||''}</div>`;}
+SC.C11=()=>({who:'Customer · Meesho app',g:['Order details','This is where the customer usually waits until the rider calls. Our first message now arrives on WhatsApp. Tap the notification.','Slide 6 · Msg 1'],
+ html:phone(`${orderDetails()}<button class="notif" data-a="openM1"><b>WhatsApp · Meesho ✔</b><small>now</small>Your order is confirmed! Are these details correct?</button>`)});
+
+/* ---- WhatsApp: Msg 1 / 2 / 3 ---- */
+function msg1(){msgIn(`Your order is confirmed! Are these details correct?<br><br>📍 ${esc(addrTxt(O.addr))}<br>📞 Receiver: ${O.receiver?esc(O.receiver):'Harsh · 98XXX0042'}`,{card:`<b>Order #${O.id}</b><br>${O.item} · ₹${O.pay==='COD'?O.price:O.price-25} · ${O.pay==='COD'?'Cash on delivery':'Paid'}`,btns:[['Looks good','m1_ok'],['Fix details / location','m1_fix'],["Didn't place this order?",'m1_notme','red']]});O.phase='m1';}
+function doM2(){O.m2idx=O.chat.length;O.clock='Sat 4 Oct · 14:10';O.stage=2;sysC('14:10 · Packed, ships in about 4 hours');
+ if(O.profile==='high'&&O.pay==='COD'){msgIn('Do you still want this order? We will ship it soon. If you no longer need it, you can cancel now.',{card:`${O.item} · ₹${O.price} · Cash on delivery`,btns:[['Yes, ship it','m2_yes'],['Pay now & save ₹25','m2_pay'],['Cancel order','m2_cancel','red']],foot:'Sent only for some Cash on Delivery orders'});O.phase='m2';
+   ev('sys','RTO-risk score 0.71 → top 25% of COD → Msg 2 sent ~4 h before dispatch');ev('ct','High-risk COD split 50:50 · this order = Treatment (holdout gets nothing)');}
+ else{sysC(`No Msg 2 for this order: it is ${O.profile==='low'?'low-risk COD':'prepaid'}. No new cancel prompt.`);O.phase='m2skip';ev('sys',`No Msg 2 · ${O.profile==='low'?'low-risk COD (75% of COD never sees a cancel option)':'prepaid orders never see Pay-now or cancel'}`);ffC('⏩ Delivery day','ff_m3');}}
+function doM3(){O.m3idx=O.chat.length;O.clock='Fri 10 Oct · 08:30';O.stage=4;sysC('Delivery day · 08:30 · reached '+LOC().hub);
+ const btns=[["Yes, I'll be available",'m3_yes']];if(O.hubTrained&&!O.frozen)btns.push(['No, deliver another day','m3_later']);btns.push(['Send my location','m3_loc']);
+ const txt=O.frozen?`Your order is out for delivery today with Ravi. Today's route is already fixed, so the time can't change now.`:O.pay==='COD'?`Will you be available today? ₹${O.price} to pay at the door. Keep cash ready, or pay online in the Meesho app and skip cash.`:`Will you be available today? Already paid, nothing to pay at the door.`;
+ msgIn(txt,{card:`🚚 Out for delivery today · ${O.item}`,btns,foot:'Your delivery partner: Ravi · 986xxxxx54'});O.phase='m3';
+ ev('hub','Destination-hub scan → Msg 3 window open until run-sheet freeze 10:30 (~2 h before last-mile release)');
+ if(!O.hubTrained)ev('ct','Hub not trained for reschedules → "Another day" hidden (never promise what the network can\'t do)');
+ if(O.frozen)ev('ct','Run sheet frozen / rider allocated → only availability + location hint + rider contact');}
+SC.WA=()=>{const ph=O.phase;const demo=[];
+ if(ph==='m1')demo.push({lbl:'Other outcomes'},{label:'Customer doesn\'t reply',a:'noreply'});
+ if(ph==='m2'||ph==='m2skip')demo.push({lbl:'Who is this order? (Msg 2 targeting)'},{label:'High-risk COD',a:'prof',v:'high',on:O.profile==='high'},{label:'Low-risk COD',a:'prof',v:'low',on:O.profile==='low'},{label:'Prepaid',a:'prof',v:'prepaid',on:O.profile==='prepaid'});
+ if(ph==='m2')demo.push({lbl:'Other outcomes'},{label:'Customer doesn\'t reply',a:'noreply'},{label:'Reply arrives after dispatch',a:'cutoff'});
+ if(ph==='m3')demo.push({lbl:'Hub situation'},{label:'Hub trained',a:'trained',v:'1',on:O.hubTrained},{label:'Hub not trained',a:'trained',v:'0',on:!O.hubTrained},{label:'Run sheet frozen',a:'frozen',on:O.frozen},{lbl:'Other outcomes'},{label:'Customer doesn\'t reply',a:'noreply'});
+ const g=ph==='m1'?['Msg 1 · right after ordering (every order)','Confirm or fix the details while fixing costs ₹0. Try all three replies: each one does something different behind the scenes.','Slide 6 · reaches ~36 RTOs / 1,000']
+  :ph==='m2'?['Msg 2 · ~4 h before dispatch (riskiest 25% of COD only)','Ask about intent while the order can still be stopped. Cancel needs a second tap. Switch the order type to see who never gets this message.','Slide 6 · Slide 12-② · ~40 RTOs / 1,000']
+  :ph==='m2skip'?['No Msg 2 for this order','Low-risk COD and prepaid orders never see a cancel prompt. Switch back to High-risk COD to see Msg 2.','Slide 5 · Slide 12-②']
+  :ph==='m3'?['Msg 3 · delivery day (every order)','Ask about availability only. No cancel after dispatch. Change the hub situation to see which buttons disappear.','Slide 6 · Slide 12-③④ · ~35 RTOs / 1,000']
+  :['WhatsApp from Meesho','Follow the next step in the chat.','Slide 6'];
+ return {who:'Customer · WhatsApp',g,html:phone(wa(chatHtml())),demo};};
+SC.M3=()=>{const f=O.ef,lk=O.locked;return {who:'Customer · Meesho app',g:['Fix details: opened from WhatsApp in the Meesho app','WhatsApp only notifies; the edit happens on the same order inside the app. Type any change (house, landmark, PIN, city) and tap Continue, or use a preset below.','Slide 6-D · Slide 12-①'],
+ html:phone(`${mzh('Edit delivery address')}<div class="form"><div class="new"><b>★ NEW</b> · Opened from WhatsApp for order #${O.id}</div>
+ ${lk?`<div class="warnbox">🔒 Label printed and route locked. City and PIN can't change now. You can add a landmark or change the house line.</div>`:''}
+ ${O.editErr?`<div class="errbox">${O.editErr}</div>`:''}
+ <div class="fcard"><div class="fld half"><label>Name *</label><input value="Harsh" readonly></div><div class="fld half"><label>Contact *</label><input id="ef_ph" value="${esc(f.ph)}"></div>
+ <div class="fld"><label style="color:#9F2089">House no. / Building *</label><input id="ef_h" value="${esc(f.h)}"></div><div class="fld"><label style="color:#9F2089">Road / Area / Landmark *</label><input id="ef_r" value="${esc(f.r)}"></div>
+ <div class="fld ${lk?'lock':''}"><label>Pincode * ${lk?'🔒':''}</label><input id="ef_p" value="${esc(f.p)}" ${lk?'readonly':''} inputmode="numeric" maxlength="6"></div><div class="fld half ${lk?'lock':''}"><label>City ${lk?'🔒':''}</label><input id="ef_c" value="${esc(f.c)}" ${lk?'readonly':''}></div><div class="fld half ${lk?'lock':''}"><label>State ${lk?'🔒':''}</label><input id="ef_s" value="${esc(f.s)}" ${lk?'readonly':''}></div></div></div>
+ <div class="foot">${O.editErr&&O.editErrKeep?`<button class="btnO" data-a="keepAddr">Keep current address</button>`:''}<button class="btnP" data-a="editSave">Continue</button></div>`),
+ demo:[{lbl:'Quick presets (or type in the form)'},{label:'Add landmark',a:'emode',v:'minor'},{label:'Move to Jaipur',a:'emode',v:'major'},{label:'Unserviceable PIN',a:'emode',v:'unserv'},{lbl:'Order situation'},{label:'Route not locked',a:'elock',v:'0',on:!lk},{label:'Route locked (label printed)',a:'elock',v:'1',on:lk},{label:'Valmo sync fails',a:'esync',on:!!O.syncFail}]};};
+SC.N3=()=>({who:'Customer · Meesho app',g:['Pay now (from Msg 2)','Payment happens in Meesho\'s secure flow, never through a WhatsApp link. Try a failed payment too.','Slide 6 · Slide 10 Pay-now'],
+ html:phone(`${mzh('Payment method')}<div class="body"><div class="green">Save ₹25 by paying now</div><div class="sec">${prodRow()}</div><div class="sec"><div style="font-weight:600;margin-bottom:8px">Pay with</div>${['PhonePe','Google Pay','Paytm','Other UPI apps'].map((p,i)=>`<button class="addrow ${i===(O.upi||0)?'sel':''}" data-a="upi" data-v="${i}" style="border:1px solid #eee;border-radius:10px;margin-bottom:6px;width:100%;background:#fff;font:inherit;color:inherit;cursor:pointer;text-align:left"><span class="radio"></span><span>${p}</span></button>`).join('')}</div></div>
+ <div class="foot"><div class="tot">₹${O.price-25}<small>₹25 OFF</small></div><button class="btnP" style="flex:1" data-a="payok">Pay ₹${O.price-25}</button></div>`),demo:[{lbl:'Other outcome'},{label:'Payment fails',a:'payfail'}]});
+SC.N3x=()=>({who:'Customer · Meesho app',g:['Payment failed: order is NOT cancelled','A failed payment never cancels the order. It simply stays Cash on Delivery.','Slide 6-F'],
+ html:phone(`${mzh('Payment')}<div class="body" style="padding:20px;gap:14px;justify-content:center;text-align:center"><div style="font-size:52px">⚠️</div><h3 style="margin:0">Payment didn't go through</h3><p style="color:#555">Don't worry. Your order is still <b>Cash on Delivery</b> and will arrive as planned.</p><button class="btnP" data-a="backWA">Back to WhatsApp</button></div>`)});
+SC.N5=()=>({who:'Customer · Meesho app',g:['Cancel needs a second tap','Same bottom sheet Meesho already uses. A mistaken tap can be undone.','Slide 6-F · Slide 12-②'],
+ html:phone(`${orderDetails()}<div class="sheetbg"><div class="sheet"><div class="sh">Cancel order <button class="bk" data-a="cancelNo" style="background:none;border:none;font-size:18px;cursor:pointer" aria-label="Close">✕</button></div><div style="text-align:center;padding:18px"><div style="font-size:60px">📦</div><b style="font-size:17px">Packing your order</b><p style="margin:6px 0 0;color:#555">Do you still want to cancel?</p></div><div class="row2"><button class="btnO" data-a="cancelNo" style="color:#333;border-color:#333">Keep Order</button><button class="btnP" data-a="cancelYes">Cancel Order</button></div></div></div>`)});
+SC.N6=()=>({who:'Customer · Meesho app',g:['CANCELLED_PRE_DISPATCH','The buyer no longer wanted it, and it never left the seller. No forward trip, no return trip: ₹170 never spent.','Slide 10 · 4.1 per 1,000 orders'],
+ html:phone(orderDetails(`<div class="sec"><button class="btnP" data-a="path" data-v="P7">See impact & holdout check →</button><div style="height:8px"></div><button class="btnO" data-a="path" data-v="P0">↺ Try another path</button></div>`))});
+SC.T5=()=>({who:'Customer · WhatsApp',g:['Send my location','A one-time pin can fix the last 500 metres, but it can never rewrite the order\'s address or hub. Try each kind of pin.','Slide 12-④'],
+ html:phone(`<div class="wah"><button class="bk" data-a="back" style="background:none;border:none;font-size:20px;cursor:pointer" aria-label="Back">←</button><b>Send location</b></div><div class="body" style="background:#fff"><div class="map" style="margin:10px;height:210px"><div class="zone" style="width:60%"></div><span class="zl" style="left:6px;bottom:6px">${LOC().hub} area</span><span class="pin" style="left:90px;top:120px"></span></div>
+ ${[[LOC().near+' · 400 m from address','inside'],[LOC().far+' · 6 km away','far'],[LOC().other,'city'],['New phone + far pin (account just logged in elsewhere)','susp']].map(([l,v])=>`<button class="addrow" data-a="loc" data-v="${v}">📍 <span>${l}</span></button>`).join('')}</div>`)});
+SC.D1=()=>{const pend=O.hubQ.some(q=>q.st==='pending');return {who:'Valmo hub app',g:['Hub: the reply becomes a real action','Every customer reply lands in the hub\'s exception queue with the same AWB. If the operator misses it, the Control Tower sees it.','Slide 6-F · Slide 12-③'],
+ html:phone(ops('Valmo Hub',LOC().lmdc+' · Fri 10 Oct','#1F2A44',`<div class="oc"><h5>Hub settings</h5>'Another day': ${O.hubTrained?'<span class="tag t-ok">ON</span>':'<span class="tag t-bad">OFF</span>'} · Freeze 10:30 · Execution ${O.exec==='miss'?'86%':'96%'}</div>
+ <div class="oc"><h5>Exception queue</h5>${O.hubQ.length?O.hubQ.map(q=>`<div style="padding:6px 0;border-bottom:1px solid #eee"><b>${q.t}</b> · AWB 1490 2235 7781<br><span style="font-size:13px">${q.d}</span><br>${q.st==='pending'?`<button class="btnP" style="padding:7px;margin-top:6px;font-size:13px" data-a="execok">Mark done</button>`:q.st==='done'?'<span class="tag t-ok">Executed</span>':'<span class="tag t-bad">Missed</span>'}</div>`).join(''):'No exception for this order. It stays on Wave 11–2.'}</div>
+ <div class="oc"><h5>Run sheet · Wave 11–2</h5>18 parcels · Rider Ravi</div>${pend?'':`<button class="btnP" data-a="go" data-v="D4" style="background:#1F2A44">Send wave to riders →</button>`}`),true),
+ demo:pend?[{lbl:'Other outcome'},{label:'Operator misses the action',a:'execmiss'}]:[]};};
+SC.D4=()=>{const removed=O.resched&&O.exec!=='miss'&&!O.nextDay;
+ return {who:'Rider app',g:['Rider: the task changes on the rider\'s phone','A rescheduled parcel disappears from today\'s list; a pin shows as a hint. Then the door: delivered, refused, or a suspicious "not available".','Slide 6-F · Slide 4 · 4.1'],
+ html:phone(ops('Ravi · Rider app',removed?'Wave 11–2 · 17 parcels':'Wave 11–2 · 18 parcels','#2F6F73',`${[LOC().stops[0]+' · Prepaid',LOC().stops[1]+' · COD ₹349'].map(t=>`<div class="oc" style="opacity:.7">${t}</div>`).join('')}
+ ${removed?`<div class="oc" style="border:2px dashed #C2185B"><b>Removed from today</b><br>AWB 1490 2235 7781 rescheduled to ${O.slot}.<div style="margin-top:8px"><button class="btnP" style="background:#2F6F73" data-a="nextday">⏩ ${O.slot}: deliver</button></div></div>`
+ :`<div class="oc" style="border:2px solid #2F6F73"><b>${O.nextDay?O.slot+' wave':'Wave 11–2'}</b> · AWB 1490 2235 7781<br>Harsh · ${esc(O.addr.line)}, ${esc(O.addr.area)}<br>${O.pay==='COD'?'<span class="tag t-warn">Collect ₹${O.price}</span>':'<span class="tag t-ok">Prepaid</span>'} ${O.pinHint?`<span class="tag t-new">📍 ${O.pinHint}</span>`:''} ${O.addr.verified?'<span class="tag t-ok">Building verified</span>':''}
+ <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px"><button class="btnP" style="background:#1E8A4C" data-a="dlv">Delivered</button><button class="btnP" style="background:#C0262D" data-a="ref">Customer refused</button><button class="btnO" style="color:#555;border-color:#999" data-a="unav">Mark "customer unavailable"</button></div></div>`}`),true)};};
+SC.D5=()=>({who:'Rider app',g:['Delivered: no RTO','The journey closes. Open the Control Tower view to see what this path was worth.','Slide 10'],html:phone(ops('Ravi · Rider app','Delivered','#2F6F73',`<div class="oc" style="text-align:center"><div style="font-size:48px">✅</div><b>Delivered</b><br>${O.pay==='COD'?'₹'+O.price+' collected':'Prepaid'}${O.resched?'<br>Rescued parcel: ₹120 return trip avoided':''}</div><button class="btnP" data-a="path" data-v="P7">See impact →</button><button class="btnO" data-a="path" data-v="P0">↺ Try another path</button>`),true)});
+SC.D6=()=>({who:'Valmo hub app',g:['Refused at the door: the RTO still counts','Family refusal (1.3) and parcel trust (5.2) happen only at the door, outside the 3 messages. The RTO is recorded, then the hub checks whether a local second chance is possible.','Slide 4 · Slide 8'],
+ html:phone(ops('Valmo Hub','Returns desk · Kalyanpur LMDC','#1F2A44',`<div class="oc"><b>RTO created</b> · AWB 1490 2235 7781<br>${O.item} · ₹${O.price}<br><span class="tag t-bad">₹50 + ₹120 = ₹170 cost</span></div><button class="btnP" style="background:#1F2A44" data-a="lrShoes">Check Local Recovery for this parcel →</button>`),true)});
+SC.D7=()=>({who:'Valmo hub app',g:['Attempt audit (Valmo ops, not a customer message)','"Customer unavailable" while the rider\'s GPS is 3.2 km away and there is no call log gets flagged to Valmo ops. Root cause 4.1 is owned by ops.','Slide 5 · 4.1 → Valmo ops'],
+ html:phone(ops('Valmo Hub','Attempt audit','#1F2A44',`<div class="oc"><h5>Attempt check · AWB 1490 2235 7781</h5>Marked: "customer unavailable" 12:04<br>Rider GPS at that time: <b>3.2 km away</b><br>Calls to customer: <b>0</b><br>Customer replied "available" in Msg 3 at 08:41<br><span class="tag t-bad">Flagged to Valmo ops</span></div><button class="btnP" style="background:#1F2A44" data-a="go" data-v="D4">Back to rider task</button>`),true)});
+
+/* ---- main-story actions ---- */
+const ACT={};
+ACT.go=v=>go(v);ACT.back=()=>{if(S.hist.length){S.scr=S.hist.pop();return;}if(S.scr==='WA'&&O.placed){S.scr='C11';return;}if(['C11','C2','CL'].includes(S.scr)&&['P0','P1','P2','P3','P4'].includes(S.path)){S.scr='C1';}};
+ACT.size=v=>{O.size=v;};
+ACT.cat=v=>{O.catSel=v;if(S.scr!=='CL')go('CL');};
+ACT.prod=v=>{if(O.placed){const keep=new Set(S.cov);enterRaw('P0');S.cov=keep;}const p=CAT[v];Object.assign(O,{pkey:v,item:p.item,emo:p.emo,price:p.price,mrp:p.mrp,size:null});go('C2');};
+ACT.pickAddr=v=>{O.addr=Object.assign({},A[v],{v:1,verified:false,src:v==='gps'?'Saved from GPS, never checked':'Saved address (default)'});};
+ACT.startMap=()=>{O.map={pin:3,house:'',chk:false};go('C6');};
+ACT.pin=v=>{O.map.pin=+v;const b=BLD[+v];if(!b[5]){cov('3.2');ev('sys','GeoIndia: pin in 208017 ≠ entered PIN 208016 → warning shown');}};
+ACT.fillHouse=()=>{O.map.house='Hall 3, Room 214';};
+ACT.saveMap=()=>{const b=BLD[O.map.pin];O.addr={key:'hall',line:O.map.house,area:b[0]+', IIT Kanpur',city:'Kanpur',state:'Uttar Pradesh',pin:'208016',v:1,verified:true,src:'Building pin + confirmed line'};cov('3.4');O.toast='✓ Address saved with building pin';ev('sys','Address saved: building-level pin + confirmed house line (GeoIndia ✓)');S.hist=S.hist.filter(x=>x!=='C6');if(!addrReturn())S.scr='C3';};
+ACT.saveMan=()=>{if(O.man.house.trim().length<3){O.man.err=true;cov('3.1');ev('sys','GeoIndia: landmark-only address → asked for house / building number');return;}O.addr={key:'hall',line:O.man.house,area:'near Hanuman Mandir, Kalyanpur',city:'Kanpur',state:'Uttar Pradesh',pin:'208016',v:1,verified:true,src:'Manual + GeoIndia check'};O.toast='✓ Address saved';ev('sys','Manual address saved after GeoIndia check');if(!addrReturn())S.scr='C3';};
+ACT.fillMan=()=>{O.man.house='Hall 3, Room 214';};
+ACT.saveRecv=()=>{O.receiver='Ramesh (Papa) · 98XXX01234 · alt 98XXX0042';cov('2.3');ev('sys','Receiver + alternate number captured; rider will call the receiver');O.toast='✓ Receiver added';S.scr='C3';};
+ACT.toPay=()=>{if(O.addr.key==='none')return;O.toast=null;go('C9');};
+ACT.payChoice=v=>{O.payChoice=v;};
+ACT.place=()=>{if(O.payChoice==='ON'){O.pay='PREPAID';O.profile='prepaid';}else{O.pay='COD';if(O.profile==='prepaid')O.profile=S.prof==='prepaid'?'high':S.prof;}O.stage=0;O.placed=true;O.clock='Sat 4 Oct · 10:02';
+ ev('sys',`Order placed · ${O.pay==='COD'?'COD ₹'+O.price:'Prepaid ₹'+(O.price-25)}`);ev('sys',`RTO-risk score ${risk()} → ${O.profile==='high'?'top 25% of COD → eligible for Msg 2':O.profile==='low'?'low-risk COD → Msg 1 + Msg 3 only':'prepaid → Msg 1 + Msg 3 only'}`);go('C10');};
+ACT.openM1=()=>{if(!O.chat.length){O.chat=[{k:'sys',text:'Today'}];msg1();ev('ct','Msg 1 sent to every order via the verified Meesho WhatsApp Business account');}O.toast=null;go('WA');};
+ACT.m1_ok=()=>{lockBtns();msgOut('Looks good');msgIn('Thanks! Your details are confirmed ✅');O.stage=1;ev('sys','ADDRESS_CONFIRMED → no network change');ffC('⏩ 4 hours later','ff_m2');O.phase='m1done';};
+ACT.m1_fix=()=>{lockBtns();msgOut('Fix details / location');O.ef={h:O.addr.line,r:O.addr.area,p:O.addr.pin,c:O.addr.city,s:O.addr.state,ph:'98XXX0042'};O.editErr=null;O.editErrKeep=false;go('M3');};
+ACT.m1_notme=()=>{lockBtns();msgOut("Didn't place this order?");cov('5.1');ev('sys','Owner says "Didn\'t place this order?" → order paused, account check started');S.f=freshF();S.f.fromMain=true;go('F6b');};
+ACT.noreply=()=>{const ph=O.phase;sysC('No reply');if(ph==='m1'){lockBtns();ev('ct','No reply to Msg 1 → business as usual; no-reply fed to risk model');ffC('⏩ 4 hours later','ff_m2');O.phase='m1done';}
+ else if(ph==='m2'){lockBtns();O.stage=3;ev('sys','No reply to Msg 2 → ships as planned (never auto-cancel)');ffC('⏩ Delivery day','ff_m3');O.phase='m2done';}
+ else if(ph==='m3'){lockBtns();O.stage=5;ev('hub','No reply to Msg 3 → normal attempt on Wave 11–2');ffC('Go to the hub →','go','D1');O.phase='m3done';}};
+ACT.emode=v=>{const a=O.addr;O.editErr=null;if(v==='minor')O.ef=Object.assign({},O.ef,{h:a.line,r:a.area+', near Gate 2',p:a.pin,c:a.city,s:a.state});
+ if(v==='major'){if(O.locked){O.ef=Object.assign({},O.ef,{h:'Plot 12',r:'Malviya Nagar'});}else O.ef=Object.assign({},O.ef,{h:'Plot 12',r:'Malviya Nagar',p:'302017',c:'Jaipur',s:'Rajasthan'});}
+ if(v==='unserv'&&!O.locked)O.ef=Object.assign({},O.ef,{h:'House 4',r:'Malacca',p:'744301',c:'Car Nicobar',s:'Andaman & Nicobar'});};
+ACT.elock=v=>{O.locked=v==='1';O.editErr=null;const a=O.addr;O.ef.p=a.pin;O.ef.c=a.city;O.ef.s=a.state;if(O.locked)ev('sys','Route locked: AWB label printed → city/PIN edits blocked; landmark / house line still allowed');};
+ACT.esync=()=>{O.syncFail=!O.syncFail;};
+ACT.editSave=()=>{const f=O.ef,a=O.addr;const pin=(f.p||'').trim();
+ if(!f.h.trim()||!f.r.trim()){O.editErr='Please fill the house / building and area.';return;}
+ if(!/^[1-8]\d{5}$/.test(pin)){O.editErr='Enter a valid 6-digit PIN code.';return;}
+ const ph=(f.ph||'').trim();if(ph!=='98XXX0042'&&!/^[6-9]\d{9}$/.test(ph.replace(/\s/g,''))){O.editErr='Enter a valid 10-digit mobile number.';return;}
+ const cityChange=f.c.trim().toLowerCase()!==a.city.toLowerCase();const pinChange=pin!==a.pin;
+ const PFX={kanpur:'208',lucknow:'226',jaipur:'302'};const want=PFX[f.c.trim().toLowerCase()];
+ if(want&&!pin.startsWith(want)&&!pin.startsWith('744')){O.editErr=`PIN ${pin} doesn't match ${esc(f.c.trim())} (GeoIndia check). Please check the PIN or the city.`;ev('sys','GeoIndia: PIN '+pin+' does not belong to '+f.c.trim()+' → asked to correct');return;}
+ const lineChange=f.h.trim()!==a.line||f.r.trim()!==a.area;const phChange=ph!=='98XXX0042';
+ if(!cityChange&&!pinChange&&!lineChange&&!phChange){S.scr='WA';msgIn('No changes made. Your details are confirmed ✅');ev('sys','Edit opened, nothing changed → ADDRESS_CONFIRMED');O.stage=1;ffC('⏩ 4 hours later','ff_m2');O.phase='m1done';return;}
+ if(pinChange&&pin.startsWith('744')){O.editErr=`We don't deliver to ${pin} yet. Your current address stays: ${esc(addrTxt(a))}`;O.editErrKeep=true;ev('sys','Serviceability ✗ ('+pin+') → edit rejected, v'+a.v+' stays authoritative');return;}
+ const nv=a.v+1;
+ if(O.syncFail){S.scr='WA';ev('sys','Meesho accepted the edit (pending v'+nv+')');ev('hub','Valmo acknowledgement timed out ✗');ev('sys','v'+nv+' NOT committed → v'+a.v+' stays (no two truths)');msgIn(`We couldn't update your address right now. Your order will go to:<br>📍 ${esc(addrTxt(a))}<br>Please try again in a few minutes.`,{btns:[['Try again','m1_fix']]});return;}
+ S.scr='WA';const oldHub=LOC(a).hub;
+ if(cityChange){O.addr={key:'edit',line:f.h.trim(),area:f.r.trim(),city:f.c.trim(),state:f.s.trim(),pin,v:nv,verified:true,src:'Edited via Msg 1 before routing lock'};cov('3.3');
+  ev('sys',`New address validated ✓ ${O.addr.city} ${pin} serviceable`);ev('hub',`Destination remapped: ${oldHub} → ${LOC().hub}`);ev('sys','Seller label + Valmo route ✓ → v'+nv+' committed; old address archived');}
+ else{O.addr=Object.assign({},a,{line:f.h.trim(),area:f.r.trim(),pin,v:nv,src:'Edited via Msg 1'});if(lineChange)cov('3.1');if(pinChange)cov('3.2');if(phChange)cov('2.3');
+  if(pinChange)ev('sys',`PIN corrected ${a.pin} → ${pin} · GeoIndia ✓ matches ${a.city}`);
+  ev('sys',(O.locked?'Locked order: house / landmark edit allowed → ':'')+'serviceability ✓ → order record v'+nv);ev('hub',pinChange?`Delivery centre re-checked for ${pin} ✓ (${LOC().hub})`:'Valmo route ✓ acknowledged');ev('sys','Seller label ✓ · all 3 confirmed → v'+nv+' committed');}
+ msgIn(`Details updated ✅<br>📍 ${esc(addrTxt(O.addr))}${phChange?'<br>📞 '+esc(ph):''}`);O.stage=1;ffC('⏩ 4 hours later','ff_m2');O.phase='m1done';};
+ACT.keepAddr=()=>{O.editErr=null;O.editErrKeep=false;S.scr='WA';msgIn('No problem. Your order will go to your current address.');O.stage=1;ffC('⏩ 4 hours later','ff_m2');O.phase='m1done';};
+ACT.ff_m2=()=>{dropFF();doM2();};
+ACT.prof=v=>{O.profile=v;O.pay=v==='prepaid'?'PREPAID':'COD';O.chat.length=O.m2idx;doM2();};
+ACT.m2_yes=()=>{lockBtns();msgOut('Yes, ship it');msgIn('Great, your order ships today 📦');O.stage=3;cov('1.1','1.2');ev('sys','INTENT_CONFIRMED → dispatch proceeds');ffC('⏩ Delivery day','ff_m3');O.phase='m2done';};
+ACT.m2_pay=()=>{lockBtns();msgOut('Pay now & save ₹25');go('N3');};
+ACT.payok=()=>{O.pay='PREPAID';O.stage=3;S.scr='WA';msgIn(`Paid ₹${O.price-25} ✅ Nothing to pay at the door.`);cov('2.2','1.1');ev('sys','COD → PREPAID (same ₹25 offer as checkout)');ev('ct','Prepaid RTO ≈5% vs ≈40% for this risky COD band');ffC('⏩ Delivery day','ff_m3');O.phase='m2done';};
+ACT.payfail=()=>{ev('sys','Payment failed → order stays COD, NOT cancelled');S.scr='N3x';};
+ACT.backWA=()=>{S.scr='WA';msgIn('No problem, your order is still Cash on Delivery and will ship today.');O.stage=3;ffC('⏩ Delivery day','ff_m3');O.phase='m2done';};
+ACT.m2_cancel=()=>{lockBtns();msgOut('Cancel order');go('N5');};
+ACT.cancelNo=()=>{if(O.phase==='m2'||O.phase==='m2c'){S.scr='WA';msgIn('Done, your order ships today 📦');O.stage=3;ev('sys','Customer backed out of cancel → order kept');ffC('⏩ Delivery day','ff_m3');O.phase='m2done';}else{ACT.back();}};
+ACT.cancelYes=()=>{O.cancelled=true;O.outcome='cancel';O.toast='Order cancelled successfully';cov('1.1','1.2');ev('sys','CANCELLED_PRE_DISPATCH → fulfilment stopped at seller');ev('hub','Never reaches the hub');ev('ct','₹50 forward + ₹120 return never spent = ₹170 saved');O.phase='done';S.scr='N6';};
+ACT.cutoff=()=>{lockBtns();O.stage=3;msgOut('Cancel order');msgIn("Your order has already shipped, so it can't be cancelled now. On delivery day we'll ask when you'll be available.");ev('sys','Reply after dispatch cutoff → cancel rejected; only valid options shown');ffC('⏩ Delivery day','ff_m3');O.phase='m2done';};
+ACT.ff_m3=()=>{dropFF();doM3();};
+ACT.trained=v=>{O.hubTrained=v==='1';O.chat.length=O.m3idx;doM3();};
+ACT.frozen=()=>{O.frozen=!O.frozen;O.chat.length=O.m3idx;doM3();};
+ACT.m3_yes=()=>{lockBtns();msgOut("Yes, I'll be available");msgIn(O.pay==='COD'?`Great! Ravi will deliver between 11 AM and 2 PM. Please keep ₹${O.price} cash ready.`:'Great! Ravi will deliver between 11 AM and 2 PM.');O.stage=5;if(O.pay==='COD')cov('2.2');ev('hub','Stays on today\'s Wave 11–2');ev('rider','Normal task'+(O.pay==='COD'?' · cash reminder sent':''));ffC('Go to the hub →','go','D1');O.phase='m3done';};
+ACT.m3_later=()=>{lockBtns();msgOut('No, deliver another day');msgIn('No problem. Pick a time:',{btns:[['Tomorrow, 10 AM – 2 PM','slot','','Tomorrow 10 AM–2 PM'],['Tomorrow, 4 – 8 PM','slot','','Tomorrow 4–8 PM']]});};
+ACT.slot=v=>{lockBtns();msgOut(v);const again=!!O.resched;O.resched=1;O.slot=v;O.stage=4;cov('2.1','2.4');const rq=O.hubQ.find(q=>q.t==='Reslot');const rd='Pull from today\'s Wave 11–2 → hold queue → '+v;if(rq){rq.d=rd;rq.st='pending';}else O.hubQ.push({t:'Reslot',d:rd,st:'pending'});dropFF();
+ msgIn(`Done ✅ We'll deliver ${v.toLowerCase()}.`,{btns:[['Change the time again','reslot2']]});ev('hub',again?'Slot changed again before run-sheet freeze → same AWB, hold queue updated → '+v:'Exception: same AWB → pull from Wave 11–2 → hold queue → '+v);ev('rider','Task will leave today\'s list');ffC('Go to the hub →','go','D1');O.phase='m3done';};
+ACT.reslot2=()=>{lockBtns();msgOut('Change the time again');const S2=[['Tomorrow, 10 AM – 2 PM','Tomorrow 10 AM–2 PM'],['Tomorrow, 4 – 8 PM','Tomorrow 4–8 PM']].filter(x=>x[1]!==O.slot);msgIn('Sure. Pick a new time:',{btns:S2.map(x=>[x[0],'slot','',x[1]])});};
+ACT.m3_loc=()=>{lockBtns();go('T5');};
+ACT.loc=v=>{S.scr='WA';msgOut('📍 Location shared');
+ if(v==='inside'){O.pinHint=LOC().near;O.hubQ.push({t:'Pin hint',d:'Show rider: '+LOC().near+' (400 m from address)',st:'pending'});cov('3.1');msgIn('Thanks! Ravi can now see your exact spot. Delivering today.');ev('hub','Pin inside this hub\'s area → rider hint; address, AWB and hub unchanged');ev('rider','📍 Pin hint added to task');}
+ else if(v==='far'){msgIn("This spot is too far from your delivery address, so we'll deliver to the address on your order.");ev('sys','Pin 6 km away > allowed detour → rejected as a hint; shipment unchanged');}
+ else if(v==='city'){msgIn(`We can't change the city of an order that's already on its way. It will be delivered to:<br>📍 ${esc(addrTxt(O.addr))}`);ev('sys','Cross-city pin ('+LOC().other.split(', ').pop()+') → cannot reroute; address retained');}
+ else{msgIn('For your safety, delivery details can\'t be changed right now. Your order will go to the address on the order.');cov('5.1');ev('ct','New device + far pin on a COD order → Fraud Guard check; no reroute');}
+ O.stage=5;ffC('Go to the hub →','go','D1');O.phase='m3done';};
+ACT.execok=()=>{O.hubQ.forEach(q=>{if(q.st==='pending')q.st='done';});O.exec='ok';ev('hub','ACTION_EXECUTED');ev('ct','Action execution 96% (≥ 90%) → keep feature ON');};
+ACT.execmiss=()=>{O.hubQ.forEach(q=>{if(q.st==='pending')q.st='miss';});O.exec='miss';O.hubTrained=false;ev('hub','Action missed: parcel stayed on today\'s wave');ev('ct','Execution 86% < 90% → "Another day" switched OFF in this hub');go('D4');};
+ACT.nextday=()=>{O.nextDay=true;O.clock='Sat 11 Oct · 16:10';O.stage=5;ev('rider','Parcel back on '+O.slot+' wave');};
+ACT.dlv=()=>{O.delivered=true;O.stage=6;O.outcome='delivered';ev('rider','Delivered · '+(O.pay==='COD'?'₹'+O.price+' collected':'prepaid'));ev('ct','DELIVERED → no RTO'+(O.resched?' · rescued: ₹120 return trip avoided':''));go('D5');};
+ACT.ref=()=>{O.rto=true;O.outcome='rto';outc('1.3','5.2');ev('rider','Refused at the door');ev('ct','RTO counted (₹170). Door-only causes 1.3 / 5.2 stay outside the 3 messages');go('D6');};
+ACT.unav=()=>{outc('4.1');ev('rider','Marked "customer unavailable"');ev('hub','Attempt audit: GPS 3.2 km away, no call log → flagged to Valmo ops');go('D7');};
+ACT.lrShoes=()=>{S.l=freshL();const p=CAT[O.pkey];const f=[];if(p.cat!=='Home & Living')f.push('Category');if(p.price>300)f.push('Price ≤ ₹300');const WHY={Footwear:'Footwear excluded: seller recovery value is high',Kurtis:'Apparel excluded: seller recovery value is high',Jewellery:'Jewellery is a Stage 2 target, not in the Stage 1 pilot yet',Electronics:'Electronics accessories are Stage 2, not in the Stage 1 pilot yet',Beauty:'Beauty excluded: hygiene / expiry risk',Kids:'Toys come later, only after the pilot',Kitchen:'Not in the Stage 1 list (Home & Living décor only)'};ITEMS.cur={name:p.item,emo:p.emo,cat:p.cat,price:p.price,fails:f,catWhy:WHY[p.cat]};S.l.item='cur';enterRaw('P6');S.scr='L1';ev('hub','Refused parcel from the main story enters the returns desk');};
+
+/* ---- added: home/info taps, address from home bar, UPI choice ---- */
+const INFO={acct:'Account: Harsh · 98XXX0042 (same as today\'s app)',refer:'Refer and Earn opens here, same as today\'s app. Not changed by our solution.',wish:'Your wishlist is empty. Tap ♡ on any product to save it.',cart:'Your cart is empty. Tap a product and Buy Now.',mall:'Mall: branded products. Same as today\'s app.',video:'Video Finds: short product videos. Same as today\'s app.',noorders:'No orders yet. Buy something first.',addrset:'',owner:'This is the real owner\'s phone. They never placed this order, so tap "Didn\'t place this order?".'};
+ACT.info=v=>{S.ptoast=v==='addrset'?`Delivering to ${esc(addrTxt(O.addr))}. You can change it at checkout.`:INFO[v];};
+ACT.nav=v=>{v=+v;if(v===0){if(S.scr!=='C1'){go('C1');}return;}if(v===1){ACT.cat('all');return;}if(v===2){ACT.info('mall');return;}if(v===3){ACT.info('video');return;}
+ if(v===4){if(O.placed){if(S.scr!=='C11')go('C11');}else ACT.info('noorders');}};
+ACT.deliv=()=>{if(O.placed){ACT.info('addrset');return;}O.addrFrom=S.scr;go('C5');};
+function addrReturn(){const f=O.addrFrom;O.addrFrom=null;if(f&&f!=='C3'){const i=S.hist.lastIndexOf(f);S.hist=i>=0?S.hist.slice(0,i):[];S.scr=f;S.ptoast='✓ Delivery location saved';return true;}return false;}
+ACT.upi=v=>{O.upi=+v;};
+
+/* ================= P5 FRAUD GUARD ================= */
+function freshF(){return {sms:'ours',newDev:false,loggedOut:false,bank:null,fakeOrder:false,held:false,caught:null,clock:'Thu 9 Oct · 10:14',fromMain:false};}
+S.f=freshF();
+const fph=(inner)=>`<div class="phone"><div class="scr"><div class="sb"><span>10:14</span><span>5G ▮▮▮ 61%</span></div>${inner}${S.ptoast?`<div class="ptoast">${S.ptoast}</div>`:''}</div></div>`;
+SC.F1=()=>({who:'Customer\'s phone',g:['Step 1 · The fake "delivery agent" call','A caller asks for the "delivery OTP". It is really the login OTP. Compare today\'s SMS with ours, then choose what the customer does.','Slide 7 · ① OTP wording'],
+ html:fph(`<div class="call"><small style="opacity:.7">Incoming call</small><div class="big">+91 7XXXX 31120</div><div class="q">"Hello, Meesho delivery here. Your parcel is outside. Please tell me the <b>delivery OTP</b> you just got."</div>
+ <div class="tg" role="group" aria-label="SMS wording"><button class="${S.f.sms==='today'?'on':''}" data-a="fsms" data-v="today">SMS today</button><button class="${S.f.sms==='ours'?'on':''}" data-a="fsms" data-v="ours">Our SMS</button></div>
+ <div class="sms">✉️ VM-MEESHO<br>${S.f.sms==='ours'?'<b>482913</b> is your <b>MEESHO LOGIN OTP</b>. Never share it with anyone, <b>including a delivery agent</b>.':'482913 is your OTP to login to Meesho. Do not share it with anyone.'}</div>
+ <div class="cb"><button style="background:#E5484D" data-a="fhang">Don't share</button><button style="background:#30A46C" data-a="fshare">Read out the OTP</button></div></div>`),
+ demo:[{lbl:'Normal user for comparison'},{label:'Usual phone, normal activity',a:'go',v:'F2'}]});
+SC.F1s=()=>({who:'Customer\'s phone',g:['Stopped at step 1','The warning names the exact trick. One line of SMS text, live all-India by day 30.','Slide 11 · quick win'],html:fph(`<div class="call" style="justify-content:center"><div style="font-size:48px">🛡️</div><div class="big">Account safe</div><div class="q">No login happened.</div><button class="wff alt" data-a="go" data-v="F1">↺ Try again</button></div>`)});
+SC.F2=()=>({who:'Customer\'s phone',g:['Trusted device, normal activity: no friction','Logins and orders from the usual phone get no extra checks. Step-up only fires on risky new-device actions.','Slide 12 · also guarded'],html:fph(`${mzh('My account')}<div class="body" style="padding:14px;gap:10px"><div class="okbox">✓ Samsung A14 · your usual phone</div><div class="mcard" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:12px">Orders, payments and payout settings work as usual. No extra verification.</div><button class="btnO" data-a="go" data-v="F1">Back to the attack</button></div>`)});
+SC.F3=()=>({who:'Customer\'s phone (lock screen)',g:['Step 2 · New-device login alert','In our two-phone test Meesho showed no new-login alert and no device list. We add a push + SMS with "Not you?" and a Manage devices screen.','Slide 7 · ②'],
+ html:fph(`<div class="lock"><div class="clock">10:15<small>Thursday</small></div><div class="push"><small style="color:#666">🟣 Meesho · now</small><br><b>New login on Redmi Note 12</b><br>Near Kanpur, 1 min ago. Not you? Tap to secure your account.</div><div class="push"><small style="color:#666">✉️ Messages · now</small><br>Meesho: New login on Redmi Note 12. Not you? Open Meesho → Manage devices.</div>
+ <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px"><button class="btnP" data-a="go" data-v="F4">Not me, secure my account</button><button class="btnO" style="background:transparent;color:#fff;border-color:#fff" data-a="fignore">Ignore it</button></div></div>`)});
+SC.F4=()=>({who:'Customer · Meesho app',g:['Manage devices','One tap logs out the unknown phone. Any order placed from it is held and checked with the real owner.','Slide 7 · ②'],
+ html:fph(`${mzh('Manage devices')}<div class="body" style="padding:12px;gap:10px;background:#F7F7F9">
+ <div class="oc" style="display:flex;justify-content:space-between"><span><b>📱 This phone</b><br><small>Samsung A14 · active now</small></span><span class="tag t-ok">Trusted</span></div>
+ <div class="oc" style="display:flex;justify-content:space-between;align-items:center"><span><b>📱 Redmi Note 12</b><br><small>Kanpur · ${S.f.loggedOut?'logged out':'1 min ago'}</small></span>${S.f.loggedOut?'<span class="tag t-ok">Logged out</span>':'<button class="btnG" style="border-color:#C0262D;color:#C0262D" data-a="flogout">Log out</button>'}</div>
+ ${S.f.loggedOut?'<div class="okbox">✅ Account secured. Orders from that phone are on hold until you confirm them.</div><button class="btnO" data-a="go" data-v="F1">↺ Try another path</button>':''}</div>`)});
+SC.F5=()=>({who:'Fraudster\'s phone (Redmi Note 12)',g:['Owner missed the alert: what the fraudster tries','Two money paths: place a fake COD order, or set up a payout account.','Slide 7 · attack chain'],
+ html:fph(`${mzh('Meesho · logged in')}<div class="body" style="padding:12px;gap:10px;background:#F7F7F9"><div class="warnbox">This is the fraudster's phone, logged in with the shared OTP.</div><button class="btnP" data-a="ffake">Place COD order (₹1,299 earbuds)</button><button class="btnO" data-a="go" data-v="F7">Add bank account for refunds</button></div>`)});
+SC.F6=()=>({who:'Real owner · WhatsApp',g:['The real owner gets Msg 1','Msg 1 goes to the account\'s registered number, so the real owner sees an order they never placed.','Slide 6 · Slide 7 report path'],
+ html:fph(wa(`<div class="wsys">Today</div><div class="wb"><div class="tx"><div class="card"><b>Order #MF55120931</b><br>Wireless Earbuds · ₹1,299 · Cash on delivery</div>Your order is confirmed! Are these details correct?<br>📍 Room 9, Shastri Nagar, Kanpur 208005</div><span class="tm">10:22</span><button class="qb" data-a="info" data-v="owner">Looks good</button><button class="qb" data-a="info" data-v="owner">Fix details / location</button><button class="qb red" data-a="go" data-v="F6b">Didn't place this order?</button></div>`)),
+ demo:[{lbl:'Other outcome'},{label:'Owner doesn\'t notice',a:'fnotcaught'}]});
+SC.F6b=()=>({who:'Real owner · Meesho app',g:['Report → verify → hold','The owner confirms on their trusted device (never an OTP over the phone). The order is held before dispatch.','Slide 7 · Fix'],
+ html:fph(`${mzh('Report this order')}<div class="body" style="padding:14px;gap:12px;background:#F7F7F9">${S.f.held?`<div class="okbox"><b>Order held ✅</b><br>It won't ship. We've signed out unknown devices and will review your account.</div>${S.f.fromMain?'<button class="btnP" data-a="path" data-v="P5">See the full Fraud Guard story →</button>':''}<button class="btnO" data-a="go" data-v="F1">↺ Start Fraud Guard again</button>`:
+ `<div class="oc"><b>You didn't place this order?</b><br>We'll pause it while we check your account.</div><div class="oc">Confirm it's you on <b>this phone</b> (Samsung A14, trusted).</div><button class="btnP" data-a="fhold">Yes, it's me. Hold the order</button>`}</div>`)});
+SC.F7=()=>({who:'Fraudster\'s phone',g:['Step 3 · Step-up before payout setup','A saved UPI is already locked on new phones (Meesho does this today). We extend it to first-time bank setup and balance use: approve on the registered phone or pass a SIM check.','Slide 7 · ③'],
+ html:fph(`${mzh('Verify it\'s you')}<div class="body" style="padding:14px;gap:12px;background:#F7F7F9"><div class="oc">UPI harsh@okaxis <span class="tag t-ok">Locked ✓ (exists today)</span></div><div class="oc" style="text-align:center"><div style="font-size:40px">🔐</div><b>Approve on your registered phone</b><br><small>You're adding a payout account from a new device. Approve on Samsung A14, or pass a SIM check.</small></div>
+ <button class="btnP" data-a="fpass">Genuine owner: approve</button><button class="btnO" data-a="ffail">Fraudster: can't verify</button></div>`)});
+SC.F8=()=>({who:'Genuine owner',g:['Genuine user allowed','The real owner on a new phone passes the check and carries on. No auto-ban.','Slide 12'],html:fph(`${mzh('Bank account')}<div class="body" style="padding:14px;gap:12px"><div class="okbox">✅ Bank account added after verification.</div><button class="btnO" data-a="go" data-v="F1">↺ Try another path</button></div>`)});
+SC.F8x=()=>({who:'Fraudster\'s phone',g:['Blocked','Payout setup blocked, short cooling period, human review. Recovery path stays open for the real owner.','Slide 7 · ③'],html:fph(`${mzh('Bank account')}<div class="body" style="padding:14px;gap:12px"><div class="errbox"><b>⛔ Payout change blocked</b><br>New devices wait a short cooling period and need the registered phone.</div><button class="btnO" data-a="go" data-v="F1">↺ Try another path</button></div>`)});
+SC.F9=()=>({who:'At the door',g:['Fake order not caught','If nobody stops it: the family refuses ("I never ordered this") → artificial RTO ₹170, or the family pays → refund abuse.','Slide 7 · outcomes A/B'],
+ html:fph(ops('Ravi · Rider app','Shastri Nagar','#2F6F73',`<div class="oc"><b>Wireless Earbuds · COD ₹1,299</b><br>Receiver: "I never ordered this."</div><button class="btnP" style="background:#C0262D" data-a="ffam" data-v="ref">Family refuses → RTO</button><button class="btnO" data-a="ffam" data-v="pay">Family pays → abuse</button><button class="btnO" style="border-color:#999;color:#555" data-a="go" data-v="F1">↺ Start again</button>`)),});
+ACT.fsms=v=>{S.f.sms=v;};
+ACT.fhang=()=>{ev('ct','Customer read "including a delivery agent" and refused → no login');go('F1s');};
+ACT.fshare=()=>{S.f.newDev=true;cov('5.1');ev('sys','Login OTP used on a NEW device (Redmi Note 12)');ev('sys','Push + SMS "Not you?" sent to the owner');go('F3');};
+ACT.fignore=()=>{ev('sys','Owner ignored the alert');go('F5');};
+ACT.flogout=()=>{S.f.loggedOut=true;S.f.held=true;ev('sys','Owner logged out Redmi Note 12 → sessions revoked; its orders held');};
+ACT.ffake=()=>{S.f.fakeOrder=true;ev('sys','COD order #MF55120931 placed from the new device → risk flag');ev('ct','Msg 1 goes to the registered owner');go('F6');};
+ACT.fhold=()=>{S.f.held=true;if(S.f.fromMain&&O){O.held=true;O.outcome='held';}ev('sys','Owner verified on trusted device → order held before dispatch; unknown sessions revoked');ev('ct','Fake COD stopped → no RTO, no refund abuse');};
+ACT.fnotcaught=()=>{S.f.caught=false;ev('ct','Owner didn\'t notice → fake order ships');go('F9');};
+ACT.fpass=()=>{S.f.bank='ok';ev('sys','Step-up passed on registered phone → payout added');go('F8');};
+ACT.ffail=()=>{S.f.bank='blocked';ev('sys','Step-up failed → payout setup blocked, 24 h cooling, human review (no auto-ban)');go('F8x');};
+ACT.ffam=v=>{ev('ct',v==='ref'?'Family refused → artificial RTO, ₹170 logistics cost':'Family paid → refund / account abuse may follow');};
+
+/* ================= P6 LOCAL RECOVERY ================= */
+const ITEMS={
+ vase:{name:'Ceramic Flower Vase',emo:'🏺',cat:'Home & Living',price:250,fails:[]},
+ kurta:{name:'Cotton Kurta',emo:'👕',cat:"Women's Ethnic",price:449,fails:['Category','Price ≤ ₹300'],catWhy:'Apparel excluded: seller recovery value is high'},
+ shoes:{name:"Men's Running Shoes",emo:'👟',cat:'Footwear',price:599,fails:['Category','Price ≤ ₹300']},
+ optout:{name:'Photo Frame Set',emo:'🖼️',cat:'Home & Living',price:220,fails:['Seller opted in']},
+ qc:{name:'Ceramic Mug Set',emo:'☕',cat:'Home & Living',price:240,fails:['Seal / AWB / image QC']},
+ cap:{name:'Table Lamp',emo:'💡',cat:'Home & Living',price:280,fails:['Hub capacity']},
+ susp:{name:'Wall Clock',emo:'🕰️',cat:'Home & Living',price:260,fails:['Pattern check']},
+ demand:{name:'Brass Diya Set',emo:'🪔',cat:'Home & Living',price:230,fails:['Local demand']}};
+const GATES=[['Category','Home & Living is Stage 1 (fragile, seasonal)','Seller wants this category back'],['Price ≤ ₹300','₹120 return trip is a big share of the price','Above the ₹300 cap'],['Seller opted in','One-time yes for this category, floor ₹185','Seller chose normal return'],['Seal / AWB / image QC','Seal intact, SKU and photo match','Seal broken → no listing, investigate'],['Hub capacity','Hold shelf 23 / 40','Shelf full 40 / 40 → straight back'],['Pattern check','No rider / buyer cluster','Repeat refusals linked to one rider → flagged'],['Local demand','This sub-category sells near this hub','No local demand → reverse at once'],['Same-state seller (tax gate)','Seller → LMDC → buyer all in UP','—']];
+function freshL(){return {item:'vase',day:1,state:'Refused, at returns desk',shelf:23,timer:'—',awb:'1491 7730 2264',clock:'Fri 10 Oct · 13:05'};}
+S.l=freshL();
+const DAYS={1:['15% off',212],2:['20% off',200],3:['26% off · floor',185]};
+SC.L0=()=>({who:'Valmo hub app',g:['Returns desk: pick a refused parcel','Local Recovery does not lower the RTO rate. It cuts the cost of RTOs that still happen. Try a parcel that passes and ones that fail each gate.','Slides 8–9'],
+ html:phone(ops('Valmo Hub','Returns desk · Kalyanpur LMDC','#1F2A44',Object.entries(ITEMS).filter(([k])=>k!=='shoes'&&k!=='cur').map(([k,it])=>`<button class="oc" style="display:flex;gap:10px;align-items:center;text-align:left;cursor:pointer;font:inherit;color:inherit;${S.l.item===k?'border:2px solid #C2185B':''}" data-a="lpick" data-v="${k}"><span style="font-size:28px">${it.emo}</span><span><b>${it.name}</b><br><small>₹${it.price} · ${it.cat}</small></span></button>`).join('')+`<button class="btnP" style="background:#1F2A44" data-a="lcheck">Run eligibility check</button>`),true)});
+SC.L1=()=>{const it=ITEMS[S.l.item];const pass=!it.fails.length;return {who:'Valmo hub app',g:[pass?'All gates pass':'Screened out → normal return at once','Every gate must pass. Fail any one and the parcel goes back immediately; nothing is held.','Slide 8 · eligibility · Slide 12-⑤⑥⑦'],
+ html:phone(ops('Eligibility check',`${it.name} · ₹${it.price}`,'#1F2A44',`<div class="oc">${GATES.map(g=>{const f=it.fails.includes(g[0]);return `<div class="gate"><span class="gi ${f?'f':'p'}">${f?'✕':'✓'}</span><div><b>${g[0]}</b><br><small>${f?(g[0]==='Category'&&it.catWhy?it.catWhy:g[2]):g[1]}</small></div></div>`;}).join('')}</div>${pass?'<button class="btnP" style="background:#1F2A44" data-a="go" data-v="L2">Ask seller setting →</button>':'<button class="btnP" style="background:#1F2A44" data-a="lrev">Send back to seller (₹120)</button>'}`),true)};};
+SC.L2=()=>({who:'Seller app',g:['Seller: one simple choice, once','The seller keeps ownership and sets one minimum net amount. Meesho handles markdowns above it.','Slide 9 · part B'],
+ html:phone(ops('Meesho Supplier','StepUp Home Décor · Surat','#8A4B00',`<div class="oc"><b>Refused parcels in Home & Living (≤ ₹300)</b><br><small>Choose once for this category.</small></div><div class="oc"><b>◉ Allow 72 h local recovery</b><br><small>Minimum net settlement: <b>₹185</b> per ₹250 item. Not sold in 72 h → normal return, no extra fee.</small></div><div class="oc" style="opacity:.7">○ Always return normally</div><button class="btnP" style="background:#8A4B00" data-a="ladmit">Save choice</button>`),true)});
+SC.L3=()=>({who:'Valmo hub app',g:['Admitted: 72 h timer starts','Old buyer label covered, QC photo tied to the AWB, max 40 parcels on hold per hub.','Slide 9 · six steps'],
+ html:phone(ops('Valmo Hub','Local recovery shelf','#1F2A44',`<div class="oc"><b>🏺 ${ITEMS[S.l.item].name}</b><br>QC photo ✓ · old label covered ✓ · shelf 24 / 40<br><span class="tag t-new">72 h timer started</span></div><button class="btnP" style="background:#1F2A44" data-a="go" data-v="L4">List in nearby feed →</button>`),true)});
+SC.L4=()=>{const d=DAYS[S.l.day];return {who:'Nearby buyer · Meesho app',g:['Listed for nearby buyers','A normal listing in the normal feed. Condition shown, prepaid only, no "RTO" label. Change the day to see the price drop stop at the seller\'s floor.','Slide 9 · Day 1–3 markdown'],
+ html:phone(`${mzh('Near you')}<div class="body"><div class="deliv">📍 Delivering to Rawatpur - 208019</div><div style="margin:12px 14px" class="pimg"><span style="font-size:110px">🏺</span></div><div class="sec"><div style="color:#555">Ceramic Flower Vase</div><div class="pp" style="font-size:24px">₹${d[1]}<s>₹250</s><em>${d[0]}</em></div><div style="font-size:13px;color:#555;margin-top:4px">✓ Seal intact · QC verified<br>📍 Available near you for 72 h · prepaid only</div></div>
+ <div class="sec"><div class="days">${[1,2,3].map(n=>`<button class="${S.l.day===n?'on':''}" data-a="lday" data-v="${n}">Day ${n}</button>`).join('')}</div></div></div><div class="foot"><button class="btnP" data-a="lbuy">Buy now · ₹${d[1]} prepaid</button></div>`),
+ demo:[{lbl:'Anti-gaming checks'},{label:'View as the original buyer',a:'go',v:'L4b'},{label:'Rider-linked account tries to buy',a:'go',v:'L4c'},{lbl:'Other outcome'},{label:'72 h pass, nobody buys',a:'lunsold'}]};};
+SC.L4b=()=>({who:'Original buyer · Meesho app',g:['Original buyer can\'t see it','Hidden from the original buyer\'s household, address, device and payment identity, so nobody refuses to rebuy cheaper.','Slide 9 · anti-gaming'],html:phone(`${mzh('Near you')}<div class="body" style="padding:20px;text-align:center;color:#555">No local deals near you right now.<br><br><button class="btnO" data-a="go" data-v="L4">Back to buyer view</button></div>`)});
+SC.L4c=()=>({who:'Rider-linked account',g:['Collusion blocked','Accounts linked to the rider or hub staff who handled the parcel can\'t buy it. The cluster is flagged.','Slide 12-⑤'],html:phone(`${mzh('Checkout')}<div class="body" style="padding:14px"><div class="errbox">This deal isn't available for your account.</div><br><button class="btnO" data-a="go" data-v="L4">Back</button></div>`)});
+SC.L5=()=>({who:'Rider app',g:['New AWB, local delivery','A fresh sale with a fresh invoice and label. 2 km instead of a return trip to Surat.','Slide 9 · step 5'],html:phone(ops('Ravi · Rider app','Local delivery','#2F6F73',`<div class="oc"><b>New AWB 1492 0018 5521</b><br>🏺 Ceramic Flower Vase · prepaid ₹${DAYS[S.l.day][1]}<br>Rawatpur, 2 km</div><button class="btnP" style="background:#1E8A4C" data-a="ldlv">Delivered</button><button class="btnO" data-a="lfail">Delivery fails</button>`),true)});
+SC.LE=()=>{const k=S.l.state;return {who:'Valmo hub app',g:[k,'Open Control Tower for the economics: +₹120 avoided −₹31 costs = +₹89 per recovery. Scale only if ≥16% of listed parcels sell.','Slide 9 · part D'],
+ html:phone(ops('Valmo Hub','Outcome','#1F2A44',`<div class="oc" style="text-align:center"><div style="font-size:44px">${k.includes('Sold')?'✅':'↩️'}</div><b>${k}</b></div><button class="btnP" style="background:#1F2A44" data-a="go" data-v="L0">↺ Try another parcel</button><button class="btnO" data-a="path" data-v="P7">See impact →</button>`),true)};};
+ACT.lpick=v=>{S.l.item=v;};
+ACT.lcheck=()=>{const it=ITEMS[S.l.item];ev('hub',`${it.name} (₹${it.price}) refused → returns desk`);ev('hub',it.fails.length?'Failed: '+it.fails.join(', ')+' → normal return at once':'All 8 gates pass → eligible');go('L1');};
+ACT.lrev=()=>{S.l.state='Normal return to seller';ev('hub','Normal reverse started (₹120)');go('LE');};
+ACT.ladmit=()=>{S.l.state='Admitted · 72 h';S.l.shelf=24;S.l.timer='72:00';ev('seller','Seller allows 72 h local recovery, floor ₹185 net');ev('hub','Admitted: label covered, QC photo on AWB, shelf 24/40');go('L3');};
+ACT.lday=v=>{S.l.day=+v;S.l.timer=['','71:40','47:10','23:05'][+v];};
+ACT.lbuy=()=>{S.l.state='Sold · new AWB';ev('sys',`Local buyer paid ₹${DAYS[S.l.day][1]} prepaid → fresh invoice, new AWB`);go('L5');};
+ACT.ldlv=()=>{S.l.state='Sold and delivered locally (LOCAL_RECOVERY_SUCCESS)';S.l.shelf=23;ev('rider','Delivered locally');ev('ct','₹120 return trip avoided · original RTO still counted');go('LE');};
+ACT.lfail=()=>{S.l.state='Second delivery failed → back to seller, never relisted';ev('rider','Second buyer delivery failed');ev('hub','Back to seller; never relisted');go('LE');};
+ACT.lunsold=()=>{S.l.state='Unsold after 72 h → normal return';S.l.shelf=23;ev('hub','72 h passed → normal return resumes automatically (cost of trying ≈ ₹5)');go('LE');};
+
+/* ================= HOME ================= */
+function home(){return `<div class="guide"><h2>One order, every meaningful branch</h2><p>Order enters Meesho → the system decides which message it gets → the customer replies (or doesn't) → Meesho checks the order state → hub, seller and rider act or reject → Delivered, Cancelled before dispatch, RTO, or Local Recovery → the Control Tower measures it.</p><span class="sl">Slides 2–12</span></div>
+ <div class="startcard"><div><h3>New here? Take the 3-minute guided story</h3><p>One order from checkout to delivery: the 3 WhatsApp messages, Fraud Guard, the refused-parcel second chance, then the impact. Just keep pressing <b>Next step →</b> or tap the glowing button.</p></div><button class="startbtn" data-a="tourStart">▶ Start the story</button></div><div class="home"><div style="display:flex;flex-direction:column;gap:14px">
+ <div class="pan"><h3><span>Sample order</span><span>#MF42873192</span></h3><dl class="kv"><dt>Item</dt><dd>Men's Running Shoes · ₹599</dd><dt>Customer</dt><dd>Harsh · IIT Kanpur student (sample)</dd><dt>Order type</dt><dd><div class="seg">${[['high','High-risk COD'],['low','Low-risk COD'],['prepaid','Prepaid']].map(([k,l])=>`<button class="${S.prof===k?'on':''}" data-a="hprof" data-v="${k}">${l}</button>`).join('')}</div></dd><dt>Gets</dt><dd>Msg 1 + Msg 3 always${S.prof==='high'?' · <b>Msg 2</b> (top 25% COD)':' · no Msg 2'}</dd></dl></div>
+ <div class="ptiles">${[['P0','Checkout + address friction','First-time buyer: current location → building pin + typed house line, PIN mismatch, typed landmark-only address, receiver + alternate number','Slide 6-E'],['P1','Msg 1 · Correct','Confirm, minor fix, city change before/after lock, not serviceable, sync failure, "Didn\'t place this order?"','Slides 6, 12-①'],['P2','Msg 2 · Prevent','Who gets it, keep, pay now (ok / fails), cancel (back out / confirm), after cutoff','Slides 5, 6, 12-②'],['P3','Msg 3 · Rescue','Today, another day, hub not trained, route frozen, 2nd reschedule, 4 kinds of pin','Slides 6, 12-③④'],['P4','Hub · Rider · Door','Action executed or missed, rider task changes, delivered / refused / attempt audit','Slides 4, 6-F'],['P5','Fraud Guard','OTP call, new-login alert, fake COD report, step-up pass/fail, not caught','Slide 7'],['P6','Local Recovery','8 parcels through 8 gates, seller choice, 72 h listing, anti-gaming, sold / unsold','Slides 8–9'],['P7','Impact & Rollout','Sample orders, AI explained, treatment vs control, 30-60-90, kill-switches, final impact','Slides 10–12']].map(([k,t,d,s])=>`<button class="pt2" data-a="path" data-v="${k}"><span class="sl">${k} · ${s}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div></div>
+ <div style="display:flex;flex-direction:column;gap:14px"><div class="pan"><h3><span>How to use</span></h3><ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px"><li>Tap inside the phone like a real customer, hub worker or rider.</li><li>Pink dashed box under the phone = try other outcomes (no reply, failure, guard cases).</li><li>The right side shows the same order in Meesho, the hub, the rider app and the Control Tower. "Follow changes" jumps to whatever just changed.</li><li>The bar at the top counts which of the 15 root causes you have seen handled.</li></ol><div style="margin-top:12px"><button class="pt2" style="width:100%" data-a="drawer"><b>Why this intervention?</b><small>The research behind it (slides 3–5)</small></button></div></div>
+ <div class="pan"><h3><span>Root causes</span><span>pink = fixed · amber = outside the 3 messages</span></h3><div class="causes">${CAUSES.map(([i,n])=>`<span class="${S.cov.has(i)?'on':S.out.has(i)?'out':''}">${i} ${n}</span>`).join('')}</div></div></div></div>`;}
+function drawer(){return `<div class="drawer" data-a="drawerClose"><div class="in" data-stop="1"><button class="x" data-a="drawerClose">Close ✕</button><h2 style="margin:0;font-family:var(--f-display);color:var(--accent-ink)">Why this intervention?</h2>
+ <div class="tiles"><div class="tile"><div class="k">RTO rate</div><div class="v">17.0%</div></div><div class="tile"><div class="k">Cost per RTO</div><div class="v">₹170</div><div class="k">₹50 + ₹120</div></div><div class="tile"><div class="k">Born before the door</div><div class="v">11 / 15</div></div></div>
+ <div class="bars">${[['Doesn\'t want it',31],['Can\'t receive now',26],['Can\'t find customer',16],['Attempt goes wrong',15],['Fake / other',12]].map(([l,v])=>`<div class="bar"><span>${l}</span><span class="tr"><i class="fl" style="width:${v/31*100}%"></i></span><span class="n">${v}%</span></div>`).join('')}</div>
+ <p class="note">Triangulated from 70 customers, 5 riders and hub operators, Kanpur, Sept 2026 (slide 3).</p>
+ <div class="pan"><h3><span>So we act at three moments</span></h3><dl class="kv"><dt>Msg 1 · at order</dt><dd>Correct wrong phone, PIN, pin, old address (every order)</dd><dt>Msg 2 · before dispatch</dt><dd>Prevent dead demand (riskiest 25% of COD)</dd><dt>Msg 3 · delivery day</dt><dd>Rescue wanted parcels (every order)</dd></dl></div>
+ <p class="note">Outside the 3 messages: 1.3 family refusal, 4.1 no real attempt (Valmo ops audit), 4.2 pushed cancel, 5.2 parcel trust. 5.1 fake orders run on the Fraud Guard track.</p></div></div>`;}
+
+/* ================= P7 DASHBOARD ================= */
+function dashboard(){const d=S.dash;const me=O?{o:'#MF42873192 (yours)',p:O.profile==='high'?'High-risk COD':O.profile==='low'?'Low-risk COD':'Prepaid',sg:O.addr.verified?'Pin verified':'Risk '+risk(),st:O.cancelled?'Cancelled pre-dispatch':O.rto?'RTO':O.delivered?'Delivered':STG[O.stage],ac:O.resched?'Reslot':O.pinHint?'Pin hint':O.cancelled?'Stop shipment':'—',ex:O.exec==='miss'?'Missed':O.exec==='ok'?'Executed':'—',out:O.outcome||'In progress'}:null;
+ const rows=[me,{o:'#MF42870115',p:'High-risk COD',sg:'Risk 0.78',st:'Cancelled pre-dispatch',ac:'Stop shipment',ex:'Executed',out:'₹170 saved'},{o:'#MF42870342',p:'Low-risk COD',sg:'Address low',st:'Address v2',ac:'Update route',ex:'Executed',out:'Delivered'},{o:'#MF42871007',p:'Prepaid',sg:'Msg 3: another day',st:'Rescheduled',ac:'Reslot',ex:'Executed',out:'Delivered next day'},{o:'#MF42871290',p:'High-risk COD',sg:'Pay now',st:'Prepaid',ac:'Payment',ex:'Executed',out:'Delivered'},{o:'#MF42871533',p:'Low-risk COD',sg:'No reply',st:'BAU',ac:'—',ex:'—',out:'RTO (refused)'},{o:'#MF42871804',p:'High-risk COD',sg:'Far pin + new device',st:'Fraud check',ac:'No reroute',ex:'Executed',out:'Held'}].filter(Boolean);
+ const sel=rows[Math.min(d.sel,rows.length-1)];
+ const SCN={low:[13.3,1.3,630],base:[26.6,2.7,1930],high:[42.7,4.3,3750]}[d.scen];
+ const ks=d.ks;const rules=[['Delivered orders vs control',ks.del>=0,`${ks.del>0?'+':''}${ks.del}%`],['Median rider earnings vs control',ks.rid>=0,`${ks.rid>0?'+':''}${ks.rid}%`],['Net ₹ per 1,000 orders',ks.net>0,`₹${ks.net}`],['Action execution in hub',ks.exe>=90,`${ks.exe}%`],['Complaints',ks.cmp<0.5,`${ks.cmp.toFixed(1)}%`]];const allOk=rules.every(r=>r[1]);
+ return `<div class="guide"><h2>P7 · Impact & Rollout</h2><p>Every sample order flows signal → state → action → execution → outcome. Then the numbers, the test against a control group, the rollout gates and the switches that turn the feature off.</p><span class="sl">Slides 10–12</span></div><div class="dash">
+ <div class="pan"><h3><span>1 · Sample orders (tap one)</span><span>Control Tower</span></h3><div class="scroll"><table class="tbl"><tr><th>Order</th><th>Type</th><th>Signal</th><th>State</th><th>Action</th><th>Execution</th><th>Outcome</th></tr>${rows.map((r,i)=>`<tr style="cursor:pointer;${i===d.sel?'background:var(--sunk)':''}" data-a="dsel" data-v="${i}"><td>${r.o}</td><td>${r.p}</td><td>${r.sg}</td><td>${r.st}</td><td>${r.ac}</td><td>${r.ex}</td><td>${r.out}</td></tr>`).join('')}</table></div></div>
+ <div class="two"><div class="pan"><h3><span>2 · Why the system chose this</span><span>${sel.o}</span></h3><dl class="kv"><dt>RTO-risk score</dt><dd>TrustMesh behavioural, transactional, regional, device signals → ${sel.p}</dd><dt>Rule applied</dt><dd>${sel.p==='High-risk COD'?'Top 25% COD → Msg 2 eligible':sel.p==='Prepaid'?'Prepaid → never Pay-now or cancel prompt':'Low-risk COD → Msg 1 + Msg 3 only'}</dd><dt>Address check</dt><dd>GeoIndia PIN + landmark validation on every edit</dd><dt>Fraud signals</dt><dd>New device + payout / COD / far pin → step-up, human review</dd><dt>Day 60+</dt><dd>Model that learns who replies; live only once it beats these rules</dd></dl><p class="note">Rules stay visible, so the AI is never a black box.</p></div>
+ <div class="pan"><h3><span>3 · Treatment vs control (high-risk COD, per 200 orders) [A]</span></h3><div class="scroll"><table class="tbl"><tr><th></th><th>Holdout (no Msg 2)</th><th>Treatment</th></tr><tr><td>Cancelled before dispatch</td><td class="r">0</td><td class="r">4.1</td></tr><tr><td>Switched to prepaid</td><td class="r">0</td><td class="r">30</td></tr><tr><td>RTOs</td><td class="r">80</td><td class="r">69.6</td></tr><tr><td>Delivered orders</td><td class="r">120</td><td class="r">126.3</td></tr></table></div><p class="note">A reply is not proof. Only the gap against the random holdout counts. Scale only if logistics saved exceeds contribution lost from induced cancels, and delivered orders ≥ holdout.</p></div></div>
+ <div class="two"><div class="pan"><h3><span>4 · Impact per 1,000 orders</span><span><span class="seg">${['low','base','high'].map(k=>`<button class="${d.scen===k?'on':''}" data-a="dscen" data-v="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</span></span></h3>
+ <div class="tiles"><div class="tile"><div class="k">RTOs saved</div><div class="v">~${SCN[0]}</div></div><div class="tile"><div class="k">RTO rate</div><div class="v">−${SCN[1]} pt</div></div><div class="tile"><div class="k">Net value</div><div class="v">₹${SCN[2].toLocaleString('en-IN')}</div></div></div>
+ <div class="bars" style="margin-top:12px">${[['Msg 1 · correct',8.2],['Msg 2 · prevent',4.1],['Msg 3 · rescue',7.4],['Pay-now nudge',6.9]].map(([l,v])=>`<div class="bar"><span>${l}</span><span class="tr"><i class="fl" style="width:${v/8.2*100}%"></i></span><span class="n">${v}</span></div>`).join('')}</div><p class="note">Base case: 170 → ~143 RTOs, 17.0% → ~14.3%. Fraud Guard (~2.6 more [A]) and Local Recovery are shown separately.</p></div>
+ <div class="pan"><h3><span>5 · 30-60-90 rollout</span><span><span class="seg"><button class="${d.gate==='pass'?'on':''}" data-a="dgate" data-v="pass">Day-60: 1.4 pt</button><button class="${d.gate==='fail'?'on':''}" data-a="dgate" data-v="fail">Day-60: 0.6 pt</button></span></span></h3>
+ <div class="stagecards">${[['Days 1–14','Build + all-India dry run, nothing sent','Pass'],['Days 15–30','3 pin codes, 50/50 vs control','Pass'],['Days 31–60','~50 pin codes · Pay-now 3-way test','gate'],['Days 61–90','100 → 300 → 1,000 pin codes, 10% control','next']].map(([t,dd,s])=>{const st=s==='gate'?(d.gate==='pass'?'<span class="pill p-ok">Pass ≥ 1.0 pt</span>':'<span class="pill p-bad">Stop & fix</span>'):s==='next'?(d.gate==='pass'?'<span class="pill p-ok">Go</span>':'<span class="pill p-mut">Not started</span>'):'<span class="pill p-ok">Pass</span>';return `<div class="sc"><h4>${t}</h4><div class="note">${dd}</div>${st}</div>`;}).join('')}</div></div></div>
+ <div class="pan"><h3><span>6 · Kill-switches (vs control group)</span><span>${allOk?'<span class="pill p-ok">Feature ON</span>':'<span class="pill p-bad">Switched OFF for affected hubs / cohort</span>'}</span></h3>
+ ${[['del','Delivered orders vs control (%)',-3,3,0.5],['rid','Rider earnings vs control (%)',-5,5,0.5],['net','Net ₹ per 1,000 orders',-500,2500,10],['exe','Action execution in hub (%)',70,100,1],['cmp','Complaints (%)',0,1,0.1]].map(([k,l,mn,mx,st])=>`<div class="rng"><label for="ks-${k}">${l}</label><input type="range" id="ks-${k}" data-ks="${k}" min="${mn}" max="${mx}" step="${st}" value="${ks[k]}"><output>${k==='cmp'?ks[k].toFixed(1):ks[k]}</output></div>`).join('')}
+ <div class="flow" style="margin-top:8px">${rules.map(r=>`<span class="${r[1]?'':'on'}">${r[1]?'✓':'✕'} ${r[0]}: ${r[2]}</span>`).join('')}</div></div>
+ <div class="final"><h3>${allOk&&d.gate==='pass'?'Recommendation: national rollout of the 3 messages':'Recommendation: hold and fix before scaling'}</h3><p style="margin:0 0 12px">${allOk&&d.gate==='pass'?'Software-only, decided again at every 30-60-90 gate, 5% rotating holdout kept after day 90.':'A pass mark or guardrail failed. The feature stays off where it hurt; we fix and re-test against control.'}</p>
+ <div class="tiles"><div class="tile"><div class="k">RTOs per 1,000</div><div class="v">170 → ~143</div></div><div class="tile"><div class="k">Net value / 1,000</div><div class="v">≈ ₹1,930</div></div><div class="tile"><div class="k">Year-1 cost · payback</div><div class="v">₹3.9 Cr · ~4 mo [A]</div></div><div class="tile"><div class="k">At Valmo scale [A]</div><div class="v">~67,000 fewer RTOs/day</div></div></div></div></div>`;}
+ACT.dsel=v=>{S.dash.sel=+v;};ACT.dscen=v=>{S.dash.scen=v;};ACT.dgate=v=>{S.dash.gate=v;};
+
+/* ================= guided tour ================= */
+function tourStep(){const s=S.scr,ph=O&&O.phase;const f=S.f,l=S.l;
+ const T=(a,v,tip)=>({a,v,tip});
+ switch(s){
+ case 'H':return T('tourStart','','Start the story. You are Harsh, a first-time Meesho buyer.');
+ case 'C1':return T('prod','shoes','Pick any product. We will follow the shoes, but any product works.');
+ case 'CL':return T('prod',null,'Pick any product.');
+ case 'C2':return CAT[O.pkey].sizes&&!O.size?T('size',null,'Pick a size.'):T('go','C3','Tap Buy Now.');
+ case 'C3':return O.addr.key==='none'?T('go','C5','No saved address yet. A first-time buyer must add one.'):T('toPay','','The address is saved. Continue to payment.');
+ case 'C4':return T('go','C3','Keep this address.');
+ case 'C5':return T('startMap','','Tap "Use my current location". This is where we add a small check (Slide 6-E).');
+ case 'C6':{const m=O.map,b=m.pin===null?null:BLD[m.pin];const okPin=b&&b[5]===1&&!b[0].startsWith('Block');
+  if(!okPin)return T('pin','1','The GPS guess (Block 2) is the wrong spot. Tap the building you really live in: Hall 3.');
+  if(m.house.trim().length<3)return T('fillHouse','','Now type the house / room line (tap the suggestion).');
+  if(!m.chk)return T('#mc','','Tick the box to confirm the line. Save stays locked until you do.');
+  return T('saveMap','','Now Save works. The rider gets the exact building and room.');}
+ case 'C7':return O.man.house.trim().length<3?T('fillMan','','Type a house number, not only a landmark.'):T('saveMan','','Save the address.');
+ case 'C8b':return T('saveRecv','','Save the receiver.');
+ case 'C9':return T('place','','Place the order (Cash on Delivery). Meesho gives it an RTO-risk score now.');
+ case 'C10':return T('go','C11','Order placed. Continue.');
+ case 'C11':return T('openM1','','Message 1 arrives on WhatsApp. Tap the notification.');
+ case 'WA':{
+  const slotOpen=O.chat.some(m=>m.btns&&!m.used&&m.btns.some(b=>b[1]==='slot'));
+  if(slotOpen)return T('slot',null,'Pick a new time. The hub moves the parcel to that slot.');
+  if(ph==='m1')return T('m1_fix','','Message 1: "Are these details correct?" Tap Fix details to correct the address before the parcel is routed.');
+  if(ph==='m1done')return T('ff_m2','','Skip ahead 4 hours, just before dispatch.');
+  if(ph==='m2')return T('m2_yes','','Message 2 goes only to risky Cash on Delivery orders. Tap "Yes, ship it" (Pay now and Cancel are the other choices).');
+  if(ph==='m2done'||ph==='m2skip')return T('ff_m3','','Skip ahead to delivery day.');
+  if(ph==='m3')return T('m3_later','','Message 3: can you receive it today? Tap "No, deliver another day".');
+  return T('go','D1','Now see what the Valmo hub does with that reply.');}
+ case 'M3':if(O.editErr&&O.editErrKeep)return T('keepAddr','','Keep the current address.');
+  return (O.ef&&O.ef.r===O.addr.area&&O.ef.h===O.addr.line)?T('emode','minor','Add a landmark (or type any change yourself).'):T('editSave','','Tap Continue. The address changes only when Meesho, the seller label and Valmo all confirm.');
+ case 'N3':return T('payok','','Pay inside the Meesho app.');
+ case 'N3x':return T('backWA','','Back to WhatsApp. The order stays Cash on Delivery.');
+ case 'N5':return T('cancelYes','','Second tap confirms the cancel.');
+ case 'N6':return T('path','P5','Cancelled before it left the seller: no ₹170 wasted. Up next: Fraud Guard.');
+ case 'T5':return T('loc','inside','Share a pin close to the address.');
+ case 'D1':return O.hubQ.some(q=>q.st==='pending')?T('execok','','The customer\'s reply is in the hub\'s queue. The operator marks it done.'):T('go','D4','Send the parcels out to riders.');
+ case 'D4':return (O.resched&&!O.nextDay&&O.exec!=='miss')?T('nextday',null,'The parcel left today\'s list. Jump to the new slot.'):T('dlv','','The rider delivers it.');
+ case 'D5':return T('path','P5','Delivered, no return trip. Up next: Fraud Guard, our second idea.');
+ case 'D6':return T('lrShoes','','Refused. Can this parcel get a local second chance?');
+ case 'D7':return T('go','D4','Back to the rider task.');
+ case 'F1':return f.sms!=='ours'?T('fsms','ours','Compare with our SMS wording.'):T('fshare','','A fake "delivery agent" asks for the OTP. Suppose the customer still reads it out.');
+ case 'F1s':case 'F2':return T('go','F1','Back to the attack.');
+ case 'F3':return T('go','F4','A new-device alert reaches the real owner. Tap "Not me, secure my account".');
+ case 'F4':return f.loggedOut?T('path','P6','Account secured. Up next: refused parcels (Local Recovery).'):T('flogout','','Log out the unknown phone.');
+ case 'F5':return T('ffake','','The fraudster places a fake COD order.');
+ case 'F6':return T('go','F6b','The real owner gets Message 1. Tap "Didn\'t place this order?".');
+ case 'F6b':return f.held?T('path','P6','Order held. Up next: refused parcels (Local Recovery).'):T('fhold','','Confirm and hold the order.');
+ case 'F7':return T('fpass','','The genuine owner approves on the registered phone.');
+ case 'F8':case 'F8x':case 'F9':return T('path','P6','Next: refused parcels (Local Recovery).');
+ case 'L0':return T('lcheck','','A refused ₹250 vase is back at the hub. Run the eligibility check.');
+ case 'L1':return ITEMS[l.item].fails.length?T('lrev','','Screened out, so it goes straight back.'):T('go','L2','Every check passes. Ask the seller.');
+ case 'L2':return T('ladmit','','The seller allows a 72-hour local sale above a minimum price.');
+ case 'L3':return T('go','L4','List it for nearby buyers.');
+ case 'L4':return T('lbuy',null,'A nearby buyer pays online.');
+ case 'L4b':case 'L4c':return T('go','L4','Back.');
+ case 'L5':return T('ldlv','','Delivered locally. The ₹120 trip back is avoided.');
+ case 'LE':return T('path','P7','Last stop: impact and rollout.');
+ case 'DASH':return T(null,null,'End of the story. Use the tabs at the top to try other outcomes.');}
+ return null;}
+function tourEl(st){if(!st||!st.a)return null;
+ if(st.a.startsWith('#'))return document.querySelector(st.a);
+ const els=[...document.querySelectorAll(`[data-a="${st.a}"]`)].filter(e=>(st.v===null||st.v===undefined||(e.dataset.v||'')===st.v)&&!e.disabled&&e.getBoundingClientRect().width>0);
+ return els[0]||null;}
+function tourBar(){if(!S.tour)return `<div class="tourbar off"><span>Want a hand?</span><button data-a="tourOn">▶ Turn on guided tour</button></div>`;
+ const st=tourStep();if(!st)return '';
+ return `<div class="tourbar"><span class="tb-ic">👉</span><span class="tb-tx"><b>Next:</b> ${st.tip}</span>${st.a?'<button class="tb-go" data-a="tourNext">Next step →</button>':''}<button class="tb-x" data-a="tourOff">Exit tour</button></div>`;}
+function tourMark(){document.querySelectorAll('.tourHi').forEach(e=>e.classList.remove('tourHi'));if(!S.tour)return;
+ const el=tourEl(tourStep());if(!el)return;el.classList.add('tourHi');
+ let p=el.parentElement;while(p&&p!==document.body){const cs=getComputedStyle(p);if(/(auto|scroll)/.test(cs.overflowY)&&p.scrollHeight>p.clientHeight){const r=el.getBoundingClientRect(),pr=p.getBoundingClientRect();if(r.bottom>pr.bottom||r.top<pr.top)p.scrollTop+=r.top-pr.top-pr.height/2+r.height/2;break;}p=p.parentElement;}}
+ACT.tourStart=()=>{S.tour=true;O=newOrder();enterRaw('P0');};
+ACT.tourOn=()=>{S.tour=true;};ACT.tourOff=()=>{S.tour=false;};
+ACT.tourNext=()=>{setTimeout(()=>{const el=tourEl(tourStep());if(el)el.click();},0);};
+/* ================= routing & render ================= */
+ACT.view=v=>{S.view=v;};
+ACT.path=v=>enterRaw(v);
+ACT.hprof=v=>{S.prof=v;};
+ACT.drawer=()=>{S.drawer=true;};ACT.drawerClose=()=>{S.drawer=false;};
+function enterRaw(p){S.path=p;S.hist=[];S.logs[p]=[];
+ if(p==='H'){S.scr='H';return;}
+ if(p==='P7'){S.scr='DASH';return;}
+ if(p==='P5'){S.f=freshF();S.scr='F1';S.view='sys';return;}
+ if(p==='P6'){if(!S.l||S.l.item!=='cur')S.l=freshL();S.scr='L0';S.view='hub';return;}
+ O=newOrder();S.view='sys';
+ if(p==='P0'){S.scr='C1';return;}
+ O.addr=p==='P1'?Object.assign({},A.gps,{v:1,verified:false,src:'Saved from GPS, never checked'}):Object.assign({},A.hall,{v:1,verified:true,src:'Building pin + confirmed line'});O.size='UK 9';O.placed=true;
+ ev('sys',`Order placed · ${O.pay==='COD'?'COD ₹599':'Prepaid ₹574'} · risk ${risk()}`);
+ O.chat=[{k:'sys',text:'Today'}];msg1();
+ if(p==='P1'){ev('ct','Msg 1 sent to every order');S.scr='WA';return;}
+ lockBtns();msgOut('Looks good');msgIn('Thanks! Your details are confirmed ✅');O.stage=1;
+ if(p==='P2'){doM2();S.scr='WA';return;}
+ doM2();lockBtns();if(O.phase==='m2'){msgOut('Yes, ship it');msgIn('Great, your order ships today 📦');}dropFF();O.stage=3;
+ if(p==='P3'){doM3();S.scr='WA';return;}
+ doM3();lockBtns();msgOut('📍 Location shared');msgIn('Thanks! Ravi can now see your exact spot.');O.pinHint=LOC().near;cov('3.1');O.hubQ=[{t:'Pin hint',d:'Show rider: '+LOC().near+' (400 m from address)',st:'pending'}];O.stage=5;ev('hub','Pin hint from Msg 3 waiting in the exception queue');S.scr='D1';}
+function render(){
+ $('#paths').innerHTML=PATHS.map(([k,l])=>`<button class="${S.path===k?'on':''}" data-a="path" data-v="${k}">${l}</button>`).join('');
+ $('#cov').innerHTML=`Root causes seen <span class="bar"><i style="width:${(S.cov.size+S.out.size)/15*100}%"></i></span> <b>${S.cov.size+S.out.size}/15</b>`;
+ let html;
+ if(S.scr==='H')html=home();else if(S.scr==='DASH'){html=dashboard();html=html.replace('</div><div class="dash">','</div>'+tourBar()+'<div class="dash">');}
+ else{const sc=(SC[S.scr]||SC.C1)();const dm=sc.demo&&sc.demo.length?`<div class="demo"><h4>Try other outcomes</h4><div class="opts">${sc.demo.map(x=>x.lbl?`<span class="lbl">${x.lbl}</span>`:`<button class="${x.on?'on':''}" data-a="${x.a}" data-v="${x.v||''}">${x.label}</button>`).join('')}</div></div>`:'';
+  html=`<div class="guide"><h2>${sc.g[0]}</h2><p>${sc.g[1]}</p><span class="sl">${sc.g[2]}</span></div>${tourBar()}<div class="stage"><div class="left"><span class="who">${sc.who}</span>${sc.html}${dm}</div>${rightSide()}</div>`;}
+ $('#app').innerHTML=html;$('#drawer').innerHTML=S.drawer?drawer():'';
+ const ch=document.getElementById('chat');if(ch)ch.scrollTop=ch.scrollHeight;tourMark();}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;S.ptoast=null;
+ if(t.dataset.a==='drawerClose'&&e.target.closest('[data-stop]')&&!e.target.closest('.x'))return;
+ const a=t.dataset.a,v=t.dataset.v;const fn=ACT[a];if(!fn)return;
+ const prevPath=S.path;fn(v);render();if(a==='path'||S.path!==prevPath)window.scrollTo({top:0});});
+function syncMap(){const m=O.map;const b=m.pin===null?null:BLD[m.pin];const ok=b&&b[5]===1&&!b[0].startsWith('Block')&&m.house.trim().length>2&&m.chk;const bt=document.getElementById('msave');if(bt)bt.disabled=!ok;}
+document.addEventListener('input',e=>{const id=e.target.id;
+ if(id==='mh'){O.map.house=e.target.value;syncMap();}
+ if(id==='mh2'){O.man.house=e.target.value;}
+ if(id&&id.startsWith('ef_')&&O.ef){O.ef[id.slice(3)]=e.target.value;}
+ if(e.target.dataset.ks){const k=e.target.dataset.ks;S.dash.ks[k]=parseFloat(e.target.value);const o=e.target.nextElementSibling;if(o)o.textContent=k==='cmp'?S.dash.ks[k].toFixed(1):S.dash.ks[k];}});
+document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.ks){render();return;}if(e.target.id==='mc'){O.map.chk=e.target.checked;syncMap();render();}if(e.target.id==='follow'){S.follow=e.target.checked;}});
+const hp=location.hash.slice(1).toUpperCase();
+O=newOrder();enterRaw(PATHS.some(p=>p[0]===hp)?hp:'H');render();
+})();
+</script>
+</body></html>
